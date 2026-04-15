@@ -1,7 +1,7 @@
 import type { WikiPage, IngestJob, LintResult } from './types'
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = init !== undefined ? await fetch(url, init) : await fetch(url)
+  const res = await fetch(url, init)
   if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
   return res.json() as Promise<T>
 }

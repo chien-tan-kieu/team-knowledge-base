@@ -13,7 +13,7 @@ describe('getWikiPages', () => {
     }))
     const pages = await getWikiPages()
     expect(pages).toEqual(['deploy-process', 'onboarding'])
-    expect(fetch).toHaveBeenCalledWith('/api/wiki')
+    expect(fetch).toHaveBeenCalledWith('/api/wiki', undefined)
   })
 })
 
@@ -25,7 +25,7 @@ describe('getWikiPage', () => {
     }))
     const page = await getWikiPage('deploy-process')
     expect(page.slug).toBe('deploy-process')
-    expect(fetch).toHaveBeenCalledWith('/api/wiki/deploy-process')
+    expect(fetch).toHaveBeenCalledWith('/api/wiki/deploy-process', undefined)
   })
 
   it('throws on 404', async () => {
@@ -42,5 +42,6 @@ describe('ingestFile', () => {
     }))
     const job = await ingestFile(new File(['# Doc'], 'doc.md'))
     expect(job.job_id).toBe('abc-123')
+    expect(fetch).toHaveBeenCalledWith('/api/ingest', expect.objectContaining({ method: 'POST' }))
   })
 })
