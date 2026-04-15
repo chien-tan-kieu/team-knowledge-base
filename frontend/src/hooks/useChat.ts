@@ -42,9 +42,11 @@ export function useChat() {
 
       while (true) {
         const { done, value } = await reader.read()
+        const text = done
+          ? decoder.decode()                      // flush remaining bytes
+          : decoder.decode(value, { stream: true })
         if (done) break
 
-        const text = decoder.decode(value, { stream: true })
         // SSE lines: "data: <token>\n\n"
         const lines = text.split('\n')
         for (const line of lines) {
@@ -57,6 +59,9 @@ export function useChat() {
           })
         }
       }
+    } catch {
+      // Remove the empty assistant placeholder on error
+      setMessages(prev => prev.filter(m => m.id !== assistantMsg.id))
     } finally {
       setStreaming(false)
     }
