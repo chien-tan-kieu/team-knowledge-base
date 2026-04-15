@@ -42,10 +42,8 @@ export function useChat() {
 
       while (true) {
         const { done, value } = await reader.read()
-        const text = done
-          ? decoder.decode()                      // flush remaining bytes
-          : decoder.decode(value, { stream: true })
         if (done) break
+        const text = decoder.decode(value, { stream: true })
 
         // SSE lines: "data: <token>\n\n"
         const lines = text.split('\n')

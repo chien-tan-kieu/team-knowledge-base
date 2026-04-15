@@ -31,7 +31,7 @@ export function ChatInput({ onSend, disabled = false }: Props) {
         placeholder="Ask anything about your team's knowledge…"
         rows={1}
         disabled={disabled}
-        className="flex-1 resize-none bg-transparent text-sm text-near-black placeholder-warm-silver outline-none font-sans leading-relaxed"
+        className="flex-1 resize-none bg-transparent text-sm text-near-black placeholder:text-warm-silver outline-none font-sans leading-relaxed"
       />
       <button
         onClick={handleSend}

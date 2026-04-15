@@ -34,7 +34,7 @@
 
   /* Shadows */
   --shadow-ring: 0px 0px 0px 1px var(--color-ring-warm);
-  --shadow-whisper: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+  --shadow-whisper: 0px 4px 24px rgba(0, 0, 0, 0.05);
 }
 
 body {

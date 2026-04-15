@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { ingestFile, getIngestJob } from '../lib/api'
 import type { IngestJob } from '../lib/types'
 
@@ -33,6 +33,8 @@ export function useIngest() {
       setUploading(false)
     }
   }, [stopPolling])
+
+  useEffect(() => stopPolling, [stopPolling])
 
   return { job, uploading, upload }
 }
