@@ -73,10 +73,10 @@ backend/knowledge/
 
 ### Stack
 
-- **Framework:** FastAPI
-- **LLM abstraction:** LiteLLM (model-agnostic — Claude API and Ollama at launch, open to more)
+- **Framework:** FastAPI 0.128.0
+- **LLM abstraction:** LiteLLM 1.83.3 (model-agnostic — Claude API and Ollama at launch, open to more)
 - **Async jobs:** FastAPI `BackgroundTasks` for compile jobs
-- **Python version:** 3.11+
+- **Python version:** 3.13+
 - **Package manager:** uv or pip with `pyproject.toml`
 
 ### API endpoints
@@ -113,11 +113,11 @@ Both agents use LiteLLM — model is configurable via environment variable (`LLM
 
 ### Stack
 
-- **Framework:** React 18
-- **Build tool:** Vite
+- **Framework:** React 19.2.0
+- **Build tool:** Vite 8.0.7
 - **Package manager:** pnpm
-- **Styling:** Tailwind CSS with custom theme from `DESIGN.md` tokens
-- **Language:** TypeScript
+- **Styling:** Tailwind CSS v4 with custom theme from `DESIGN.md` tokens
+- **Language:** TypeScript 6.0.2
 
 ### Directory structure
 
