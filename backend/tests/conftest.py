@@ -1,7 +1,5 @@
 import pytest
 from pathlib import Path
-from fastapi.testclient import TestClient
-
 
 @pytest.fixture
 def knowledge_dir(tmp_path: Path) -> Path:
