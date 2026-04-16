@@ -8,6 +8,9 @@ class WikiFS:
         self._wiki = knowledge_dir / "wiki"
         self._pages = knowledge_dir / "wiki" / "pages"
         self._schema = knowledge_dir / "schema"
+        self._raw.mkdir(parents=True, exist_ok=True)
+        self._pages.mkdir(parents=True, exist_ok=True)
+        self._schema.mkdir(parents=True, exist_ok=True)
 
     def read_index(self) -> str:
         return (self._wiki / "index.md").read_text(encoding="utf-8")

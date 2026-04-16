@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from kb.agents.compile import CompileAgent
 from kb.api.deps import get_job_store, get_wiki_fs
@@ -34,7 +36,8 @@ async def ingest_document(
     store: InMemoryJobStore = Depends(get_job_store),
 ):
     raw_content = (await file.read()).decode("utf-8")
-    job = store.create_job(file.filename or "upload.md")
+    safe_filename = Path(file.filename or "upload.md").name
+    job = store.create_job(safe_filename)
     background_tasks.add_task(
         _run_compile, job.job_id, job.filename, raw_content, fs, store
     )
