@@ -37,3 +37,11 @@ def test_request_id_omitted_when_unset(capsys):
 
     payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert "request_id" not in payload
+
+
+def test_no_phantom_logrecord_attrs_leak(capsys):
+    setup_logging(level="INFO")
+    logger = logging.getLogger("kb.test")
+    logger.info("plain")
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert set(payload.keys()) == {"ts", "level", "logger", "message"}
