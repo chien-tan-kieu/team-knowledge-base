@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { getWikiPages, getWikiPage, ingestFile, startChat } from '../api'
+import { getWikiPages, getWikiPage, ingestFile, startChat, ApiError } from '../api'
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -43,5 +43,22 @@ describe('ingestFile', () => {
     const job = await ingestFile(new File(['# Doc'], 'doc.md'))
     expect(job.job_id).toBe('abc-123')
     expect(fetch).toHaveBeenCalledWith('/api/ingest', expect.objectContaining({ method: 'POST' }))
+  })
+})
+
+describe('ApiError', () => {
+  it('is an Error subclass with fields', () => {
+    const err = new ApiError({
+      code: 'NOT_FOUND',
+      message: 'Job not found.',
+      requestId: '01H',
+      status: 404,
+    })
+    expect(err).toBeInstanceOf(Error)
+    expect(err.code).toBe('NOT_FOUND')
+    expect(err.message).toBe('Job not found.')
+    expect(err.requestId).toBe('01H')
+    expect(err.status).toBe(404)
+    expect(err.name).toBe('ApiError')
   })
 })

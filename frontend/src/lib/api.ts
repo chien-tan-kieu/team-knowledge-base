@@ -1,4 +1,18 @@
-import type { WikiPage, IngestJob, LintResult } from './types'
+import type { WikiPage, IngestJob, LintResult, ApiErrorBody } from './types'
+
+export class ApiError extends Error {
+  code: string
+  requestId: string | null
+  status: number
+
+  constructor(init: { code: string; message: string; requestId: string | null; status: number }) {
+    super(init.message)
+    this.name = 'ApiError'
+    this.code = init.code
+    this.requestId = init.requestId
+    this.status = init.status
+  }
+}
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init)
