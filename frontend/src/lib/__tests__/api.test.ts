@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getWikiPages, getWikiPage, ingestFile, startChat, ApiError } from '../api'
+import { getWikiPages, getWikiPage, ingestFile, startChat, ApiError, ensureSession, resetSessionPromise } from '../api'
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -122,5 +122,43 @@ describe('fetchJson', () => {
       status: 502,
       requestId: '01HXYZ',
     })
+  })
+})
+
+describe('ensureSession', () => {
+  beforeEach(() => {
+    resetSessionPromise()
+    vi.restoreAllMocks()
+  })
+
+  it('calls /api/auth/session once for concurrent callers', async () => {
+    const res = { ok: true, status: 204, headers: new Headers(), json: async () => ({}) } as unknown as Response
+    const fetchMock = vi.fn().mockResolvedValue(res)
+    vi.stubGlobal('fetch', fetchMock)
+
+    await Promise.all([ensureSession(), ensureSession(), ensureSession()])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/auth/session')
+    expect(fetchMock.mock.calls[0][1]?.credentials).toBe('include')
+  })
+
+  it('throws ApiError on failure and allows retry after reset', async () => {
+    const failRes = {
+      ok: false,
+      status: 401,
+      headers: new Headers(),
+      json: async () => ({ code: 'UNAUTHENTICATED', message: 'nope', request_id: null }),
+    } as unknown as Response
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(failRes))
+
+    await expect(ensureSession()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+
+    resetSessionPromise()
+
+    const okRes = { ok: true, status: 204, headers: new Headers(), json: async () => ({}) } as unknown as Response
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(okRes))
+
+    await expect(ensureSession()).resolves.toBeUndefined()
   })
 })

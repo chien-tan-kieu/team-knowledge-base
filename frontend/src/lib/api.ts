@@ -89,3 +89,24 @@ export async function startChat(question: string): Promise<Response> {
   if (!res.ok) throw await toApiError(res)
   return res
 }
+
+let sessionPromise: Promise<void> | null = null
+
+export async function ensureSession(): Promise<void> {
+  if (sessionPromise) return sessionPromise
+  sessionPromise = (async () => {
+    const res = await fetch('/api/auth/session', { credentials: 'include' })
+    if (!res.ok) {
+      // Reset so callers can retry after handling the error.
+      const err = await toApiError(res)
+      sessionPromise = null
+      throw err
+    }
+  })()
+  return sessionPromise
+}
+
+/** Clears the memoized session promise so the next ensureSession() issues a fresh bootstrap. */
+export function resetSessionPromise(): void {
+  sessionPromise = null
+}
