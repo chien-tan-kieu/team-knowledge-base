@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -7,6 +8,8 @@ from kb.jobs.store import InMemoryJobStore
 from kb.wiki.fs import WikiFS
 from kb.wiki.models import JobStatus
 from kb.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
@@ -24,8 +27,12 @@ async def _run_compile(
         agent = CompileAgent(fs=fs, model=settings.llm_model)
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)
-    except Exception as exc:
-        store.update_job(job_id, status=JobStatus.FAILED, error=str(exc))
+    except Exception:
+        logger.exception(
+            "ingest.compile_failed",
+            extra={"job_id": job_id, "ingest_filename": filename},
+        )
+        store.update_job(job_id, status=JobStatus.FAILED, error="Ingest failed.")
 
 
 @router.post("", status_code=202)

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs, get_job_store
 from kb.wiki.fs import WikiFS
+from kb.wiki.models import JobStatus
 from kb.jobs.store import InMemoryJobStore
 from tests.conftest import authenticate
 
@@ -46,3 +47,22 @@ def test_get_missing_job_returns_404(client):
     tc, _ = client
     response = tc.get("/api/ingest/no-such-id")
     assert response.status_code == 404
+
+
+def test_ingest_failure_stores_generic_message_not_exception_str(client):
+    tc, store = client
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock(
+            side_effect=RuntimeError("secret/path/leaked.py line 42")
+        )
+        content = b"# Guide\n\nContent."
+        resp = tc.post("/api/ingest", files={"file": ("guide.md", content, "text/markdown")})
+        assert resp.status_code == 202
+        job_id = resp.json()["job_id"]
+
+        # TestClient's sync client waits for BackgroundTasks to complete before
+        # returning the response — so the job is already in terminal state here.
+        job = store.get_job(job_id)
+        assert job.status == JobStatus.FAILED
+        assert job.error == "Ingest failed."
+        assert "secret/path" not in (job.error or "")
