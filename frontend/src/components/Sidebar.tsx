@@ -25,13 +25,16 @@ export function Sidebar({ open, onNavigate }: Props) {
         to="/"
         onClick={onNavigate}
         className={({ isActive }) =>
-          `${LINK_CLASSES} ${
+          `${LINK_CLASSES} flex items-center gap-2 ${
             isActive
               ? 'bg-warm-sand text-near-black font-medium'
               : 'text-olive-gray hover:bg-border-cream'
           }`
         }
       >
+        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a9 9 0 0 1-9 9 9 9 0 0 1-4.3-1.1L3 21l1.1-4.7A9 9 0 1 1 21 12Z" />
+        </svg>
         Chat
       </NavLink>
 
