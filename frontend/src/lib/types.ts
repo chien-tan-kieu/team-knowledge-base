@@ -23,3 +23,9 @@ export interface LintResult {
   orphans: string[]
   contradictions: string[]
 }
+
+export interface ApiErrorBody {
+  code: string
+  message: string
+  request_id: string | null
+}

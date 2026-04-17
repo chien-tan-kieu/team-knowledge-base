@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs
 from kb.wiki.fs import WikiFS
+from tests.conftest import authenticate
 
 
 async def _mock_query(question: str):
@@ -16,7 +17,9 @@ def client(knowledge_dir):
     app = create_app()
     fs = WikiFS(knowledge_dir)
     app.dependency_overrides[get_wiki_fs] = lambda: fs
-    return TestClient(app), fs
+    tc = TestClient(app)
+    authenticate(tc)
+    return tc, fs
 
 
 def test_chat_returns_sse_stream(client):
@@ -37,3 +40,22 @@ def test_chat_rejects_empty_question(client):
     tc, _ = client
     response = tc.post("/api/chat", json={"question": ""})
     assert response.status_code == 422
+
+
+async def _mock_query_raises(question: str):
+    yield "hello"
+    raise __import__("kb.errors", fromlist=["LLMUpstreamError"]).LLMUpstreamError()
+
+
+def test_chat_emits_terminal_error_event_on_stream_failure(client):
+    tc, _ = client
+    with patch("kb.api.chat.QueryAgent") as MockAgent:
+        MockAgent.return_value.query = _mock_query_raises
+        with tc.stream("POST", "/api/chat", json={"question": "why?"}) as resp:
+            assert resp.status_code == 200
+            body = b"".join(resp.iter_bytes()).decode("utf-8")
+
+    # Expect the partial token then an event: error frame with the flat error json.
+    assert "data: hello" in body
+    assert "event: error" in body
+    assert "UPSTREAM_LLM_ERROR" in body

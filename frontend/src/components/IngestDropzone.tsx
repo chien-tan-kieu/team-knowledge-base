@@ -8,10 +8,10 @@ interface Props {
 }
 
 const STATUS_LABELS: Record<IngestJob['status'], string> = {
-  pending: 'Queued…',
-  running: 'Compiling wiki pages…',
-  done: 'Done — wiki updated.',
-  failed: 'Failed.',
+  pending: '⏳ Queued and waiting…',
+  running: '✨ Compiling your knowledge base…',
+  done: '✓ Your wiki is ready',
+  failed: '✕ Something went wrong, please try again.',
 }
 
 const STATUS_COLORS: Record<IngestJob['status'], string> = {
@@ -39,12 +39,20 @@ export function IngestDropzone({ onDrop, job, uploading }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {job && (
+        <div className="bg-ivory border border-border-cream rounded-xl p-4 font-sans text-sm">
+          <p className={`font-medium ${STATUS_COLORS[job.status]}`}>
+            {STATUS_LABELS[job.status]}
+          </p>
+          <p className="mt-1 text-stone-gray text-xs">{job.filename}</p>
+        </div>
+      )}
       <label
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border-warm rounded-xl p-12 cursor-pointer bg-ivory hover:border-terracotta transition-colors"
+        className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border-warm rounded-xl p-8 sm:p-12 cursor-pointer bg-ivory hover:border-terracotta transition-colors"
       >
-        <span className="text-4xl">📄</span>
+        <span className="text-3xl sm:text-4xl">📄</span>
         <span className="text-sm text-olive-gray font-sans text-center">
           Drag a <code className="bg-parchment px-1 rounded text-near-black">.md</code> file here,
           or <span className="text-terracotta underline">click to browse</span>
@@ -57,18 +65,6 @@ export function IngestDropzone({ onDrop, job, uploading }: Props) {
           disabled={uploading}
         />
       </label>
-
-      {job && (
-        <div className="bg-ivory border border-border-cream rounded-xl p-4 font-sans text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-near-black font-medium">{job.filename}</span>
-            <span className={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</span>
-          </div>
-          {job.error && (
-            <p className="mt-2 text-error-crimson text-xs">{job.error}</p>
-          )}
-        </div>
-      )}
     </div>
   )
 }

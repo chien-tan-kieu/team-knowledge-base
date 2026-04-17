@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
-import { getWikiPages, getWikiPage } from '../lib/api'
+import { ApiError, coerceApiError, getWikiPages, getWikiPage } from '../lib/api'
 import type { WikiPage } from '../lib/types'
 
 export function useWikiPages() {
   const [pages, setPages] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ApiError | null>(null)
 
   useEffect(() => {
     getWikiPages()
-      .then(setPages)
-      .catch((e: Error) => setError(e.message))
+      .then(p => {
+        setPages(p)
+        setError(null)
+      })
+      .catch(e => setError(coerceApiError(e)))
       .finally(() => setLoading(false))
   }, [])
 
@@ -20,15 +23,16 @@ export function useWikiPages() {
 export function useWikiPage(slug: string | null) {
   const [page, setPage] = useState<WikiPage | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ApiError | null>(null)
 
   useEffect(() => {
     if (!slug) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error on slug change is the canonical pattern.
     setLoading(true)
     setError(null)
     getWikiPage(slug)
       .then(setPage)
-      .catch((e: Error) => setError(e.message))
+      .catch(e => setError(coerceApiError(e)))
       .finally(() => setLoading(false))
   }, [slug])
 

@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
@@ -8,7 +9,11 @@ from kb.wiki.fs import WikiFS
 from kb.wiki.models import JobStatus
 from kb.config import settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
+
+INGEST_FAILED_MESSAGE = "Ingest failed."
 
 
 async def _run_compile(
@@ -21,11 +26,19 @@ async def _run_compile(
     store.update_job(job_id, status=JobStatus.RUNNING)
     try:
         fs.save_raw(filename, raw_content)
-        agent = CompileAgent(fs=fs, model=settings.llm_model)
+        agent = CompileAgent(
+            fs=fs,
+            model=settings.llm_model,
+            max_context_pages=settings.compile_max_context_pages,
+        )
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)
-    except Exception as exc:
-        store.update_job(job_id, status=JobStatus.FAILED, error=str(exc))
+    except Exception:
+        logger.exception(
+            "ingest.compile_failed",
+            extra={"job_id": job_id, "ingest_filename": filename},
+        )
+        store.update_job(job_id, status=JobStatus.FAILED, error=INGEST_FAILED_MESSAGE)
 
 
 @router.post("", status_code=202)
@@ -52,4 +65,6 @@ def get_job_status(
     job = store.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    if job.status == JobStatus.FAILED:
+        raise HTTPException(status_code=500, detail=job.error or INGEST_FAILED_MESSAGE)
     return job

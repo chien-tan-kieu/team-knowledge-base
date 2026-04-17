@@ -9,6 +9,7 @@ dependencies = [
     "sse-starlette>=2.3",
     "litellm==1.83.3",
     "pydantic-settings>=2.9",
+    "PyJWT>=2.8",
 ]
 
 [project.optional-dependencies]

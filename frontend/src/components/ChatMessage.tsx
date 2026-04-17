@@ -22,13 +22,13 @@ export function ChatMessage({ message }: Props) {
 
       {/* Bubble */}
       <div
-        className={`max-w-prose rounded-xl px-4 py-3 text-sm leading-relaxed font-sans shadow-whisper ${
+        className={`min-w-0 max-w-[calc(100%-2.5rem)] sm:max-w-prose rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-sm leading-relaxed font-sans shadow-whisper ${
           isUser
             ? 'bg-near-black text-ivory rounded-tr-sm'
             : 'bg-ivory border border-border-cream text-near-black rounded-tl-sm'
         }`}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words">{message.content}</p>
 
         {message.citations.length > 0 && (
           <div className="mt-2 pt-2 border-t border-border-cream flex flex-wrap gap-1">

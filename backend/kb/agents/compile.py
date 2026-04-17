@@ -1,5 +1,9 @@
+import logging
 import litellm
+from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
+
+logger = logging.getLogger(__name__)
 
 
 COMPILE_PROMPT = """You are a knowledge base compiler. You receive a raw markdown document and the current wiki state, and you produce structured wiki pages following the schema.
@@ -34,16 +38,19 @@ Pages touched: slug-one, slug-two
 
 
 class CompileAgent:
-    def __init__(self, fs: WikiFS, model: str) -> None:
+    def __init__(self, fs: WikiFS, model: str, max_context_pages: int = 10) -> None:
         self._fs = fs
         self._model = model
+        self._max_context_pages = max_context_pages
 
     async def compile(self, filename: str, raw_content: str) -> None:
         schema = self._fs.read_schema()
         index = self._fs.read_index()
 
         existing_pages = ""
-        for slug in self._fs.list_pages():
+        # Cap context to the most recent N pages so the prompt stays bounded as
+        # the wiki grows. The full index is still included above.
+        for slug in self._fs.list_pages()[-self._max_context_pages :]:
             page = self._fs.read_page(slug)
             existing_pages += f"\n--- {slug} ---\n{page.content}\n"
 
@@ -55,10 +62,15 @@ class CompileAgent:
             raw_content=raw_content,
         )
 
-        response = await litellm.acompletion(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = await litellm.acompletion(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as exc:
+            logger.error("llm.compile_failed")
+            raise LLMUpstreamError() from exc
+
         output = response.choices[0].message.content
         self._parse_and_write(output)
 
