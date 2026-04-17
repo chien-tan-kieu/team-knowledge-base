@@ -100,4 +100,28 @@ describe('useChat error surfaces', () => {
     expect(result.current.messages).toHaveLength(1)
     expect(result.current.messages[0].role).toBe('user')
   })
+
+  it('surfaces error and removes empty bubble when stream closes with zero frames', async () => {
+    // Simulates the LLM-not-configured case: backend returns HTTP 200 and
+    // closes the stream without yielding any data or error events.
+    const emptyStream = new ReadableStream({
+      start(controller) {
+        controller.close()
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      { ok: true, body: emptyStream.pipeThrough(new TransformStream()) } as unknown as Response,
+    ))
+
+    const { result } = renderHook(() => useChat())
+    await act(async () => {
+      await result.current.sendMessage('are you there?')
+    })
+
+    expect(result.current.error).toBeInstanceOf(ApiError)
+    expect(result.current.error?.message).toContain('did not respond')
+    expect(result.current.messages).toHaveLength(1)
+    expect(result.current.messages[0].role).toBe('user')
+    expect(result.current.streaming).toBe(false)
+  })
 })

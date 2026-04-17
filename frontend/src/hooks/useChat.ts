@@ -49,6 +49,7 @@ export function useChat() {
     setMessages(prev => [...prev, userMsg, assistantMsg])
     setStreaming(true)
 
+    let receivedFrame = false
     try {
       const response = await startChat(question)
       const reader = response.body!.getReader()
@@ -63,6 +64,7 @@ export function useChat() {
         buffer = rest
 
         for (const frame of frames) {
+          receivedFrame = true
           if (frame.event === 'error') {
             try {
               const body = JSON.parse(frame.data) as ApiErrorBody
@@ -80,11 +82,6 @@ export function useChat() {
                 status: 200,
               }))
             }
-            setMessages(prev => {
-              const last = prev[prev.length - 1]
-              if (last.id === assistantMsg.id && last.content === '') return prev.slice(0, -1)
-              return prev
-            })
           } else {
             const token = frame.data
             setMessages(prev => {
@@ -95,22 +92,29 @@ export function useChat() {
           }
         }
       }
+
+      if (!receivedFrame) {
+        setError(new ApiError({
+          code: 'INTERNAL_ERROR',
+          message: 'The assistant did not respond. Please check the server configuration.',
+          requestId: null,
+          status: 200,
+        }))
+      }
     } catch (e: unknown) {
       if (e instanceof ApiError) {
         setError(e)
       } else {
         setError(new ApiError({ code: 'INTERNAL_ERROR', message: 'Stream failed.', requestId: null, status: 0 }))
       }
-      // Keep the user message; drop the empty assistant placeholder only if nothing streamed.
-      setMessages(prev => {
-        const last = prev[prev.length - 1]
-        if (last.id === assistantMsg.id && last.content === '') {
-          return prev.slice(0, -1)
-        }
-        return prev
-      })
     } finally {
       setStreaming(false)
+      // Backstop: drop the empty assistant placeholder on every exit path.
+      setMessages(prev => {
+        const last = prev[prev.length - 1]
+        if (last?.id === assistantMsg.id && last.content === '') return prev.slice(0, -1)
+        return prev
+      })
     }
   }, [])
 
