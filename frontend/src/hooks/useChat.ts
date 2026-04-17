@@ -80,6 +80,11 @@ export function useChat() {
                 status: 200,
               }))
             }
+            setMessages(prev => {
+              const last = prev[prev.length - 1]
+              if (last.id === assistantMsg.id && last.content === '') return prev.slice(0, -1)
+              return prev
+            })
           } else {
             const token = frame.data
             setMessages(prev => {

@@ -79,4 +79,25 @@ describe('useChat error surfaces', () => {
     // Prior tokens preserved on the assistant message.
     expect(result.current.messages[1].content).toContain('Hello')
   })
+
+  it('removes empty assistant bubble when SSE error arrives before any tokens', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeErrorEventResponse([], {
+        code: 'UPSTREAM_LLM_ERROR',
+        message: 'The language model is currently unavailable.',
+        request_id: '01H',
+      }),
+    ))
+
+    const { result } = renderHook(() => useChat())
+    await act(async () => {
+      await result.current.sendMessage('hello?')
+    })
+
+    expect(result.current.error).toBeInstanceOf(ApiError)
+    expect(result.current.error?.message).toBe('The language model is currently unavailable.')
+    // Only the user message should remain — no empty assistant bubble.
+    expect(result.current.messages).toHaveLength(1)
+    expect(result.current.messages[0].role).toBe('user')
+  })
 })
