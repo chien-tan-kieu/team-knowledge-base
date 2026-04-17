@@ -25,9 +25,10 @@ class LLMUpstreamError(Exception):
 
 
 import logging
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from kb.logging import request_id_var
