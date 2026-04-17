@@ -20,6 +20,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         rid = _new_request_id()
         token = request_id_var.set(rid)
+        request.state.request_id = rid
         start = time.perf_counter()
         logger.info("request.start", extra={
             "event": "request.start",
