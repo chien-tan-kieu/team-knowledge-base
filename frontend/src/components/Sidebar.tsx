@@ -13,7 +13,7 @@ export function Sidebar({ open, onNavigate }: Props) {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 w-64 bg-ivory border-r border-border-cream flex flex-col py-4 gap-1 overflow-y-auto pb-safe transition-transform md:static md:z-auto md:w-55 md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-40 w-64 bg-ivory border-r border-border-cream flex flex-col py-4 gap-1 overflow-y-auto pb-safe transition-transform duration-200 ease-out md:static md:z-auto md:w-55 md:translate-x-0 md:transition-none ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}
     >

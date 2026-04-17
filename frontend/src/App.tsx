@@ -27,14 +27,15 @@ export function App() {
         </header>
 
         <div className="flex flex-1 overflow-hidden relative">
-          {drawerOpen && (
-            <button
-              type="button"
-              aria-label="Close navigation"
-              className="md:hidden fixed inset-0 z-30 bg-near-black/30"
-              onClick={() => setDrawerOpen(false)}
-            />
-          )}
+          <button
+            type="button"
+            aria-label="Close navigation"
+            tabIndex={drawerOpen ? 0 : -1}
+            className={`md:hidden fixed inset-0 z-30 bg-near-black/30 transition-opacity duration-200 ease-out ${
+              drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setDrawerOpen(false)}
+          />
           <Sidebar open={drawerOpen} onNavigate={() => setDrawerOpen(false)} />
           <main className="flex-1 overflow-hidden">
             <Routes>
