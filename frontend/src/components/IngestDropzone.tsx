@@ -8,10 +8,10 @@ interface Props {
 }
 
 const STATUS_LABELS: Record<IngestJob['status'], string> = {
-  pending: 'Queued…',
-  running: 'Compiling wiki pages…',
-  done: 'Done — wiki updated.',
-  failed: 'Failed.',
+  pending: '⏳ Queued and waiting…',
+  running: '✨ Compiling your knowledge base…',
+  done: '✓ Your wiki is ready',
+  failed: '✕ Something went wrong',
 }
 
 const STATUS_COLORS: Record<IngestJob['status'], string> = {
