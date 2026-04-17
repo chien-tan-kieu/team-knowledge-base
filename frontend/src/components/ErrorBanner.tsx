@@ -22,7 +22,7 @@ export function ErrorBanner({ error, onRetry }: Props) {
         <button
           type="button"
           onClick={onRetry}
-          className="text-xs font-medium text-olive-gray hover:text-near-black underline"
+          className="-my-1 px-2 py-1 text-xs font-medium text-olive-gray hover:text-near-black underline"
         >
           Retry
         </button>

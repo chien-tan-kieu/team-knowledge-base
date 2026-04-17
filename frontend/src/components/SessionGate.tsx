@@ -43,7 +43,7 @@ export function SessionGate({ children }: Props) {
 
   if (state.status === 'error') {
     return (
-      <div className="p-6 max-w-lg mx-auto mt-12">
+      <div className="px-4 sm:p-6 max-w-sm md:max-w-lg mx-auto mt-6 md:mt-12">
         <ErrorBanner
           error={state.error}
           onRetry={() => {

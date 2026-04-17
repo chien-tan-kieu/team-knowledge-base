@@ -42,9 +42,9 @@ export function IngestDropzone({ onDrop, job, uploading }: Props) {
       <label
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border-warm rounded-xl p-12 cursor-pointer bg-ivory hover:border-terracotta transition-colors"
+        className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border-warm rounded-xl p-8 sm:p-12 cursor-pointer bg-ivory hover:border-terracotta transition-colors"
       >
-        <span className="text-4xl">📄</span>
+        <span className="text-3xl sm:text-4xl">📄</span>
         <span className="text-sm text-olive-gray font-sans text-center">
           Drag a <code className="bg-parchment px-1 rounded text-near-black">.md</code> file here,
           or <span className="text-terracotta underline">click to browse</span>
