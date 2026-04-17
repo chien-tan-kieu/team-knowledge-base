@@ -46,7 +46,7 @@ class QueryAgent:
                 messages=[{"role": "user", "content": SELECT_PROMPT.format(index=index, question=question)}],
             )
         except Exception as exc:
-            logger.exception("llm.select_failed")
+            logger.error("llm.select_failed")
             raise LLMUpstreamError() from exc
 
         slugs_raw = select_response.choices[0].message.content.strip()
@@ -79,5 +79,5 @@ class QueryAgent:
         except LLMUpstreamError:
             raise
         except Exception as exc:
-            logger.exception("llm.answer_failed")
+            logger.error("llm.answer_failed")
             raise LLMUpstreamError() from exc

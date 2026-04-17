@@ -66,3 +66,21 @@ def test_ingest_failure_stores_generic_message_not_exception_str(client):
         assert job.status == JobStatus.FAILED
         assert job.error == "Ingest failed."
         assert "secret/path" not in (job.error or "")
+
+
+def test_get_failed_job_returns_500(client):
+    tc, store = client
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock(
+            side_effect=RuntimeError("compile error")
+        )
+        content = b"# Guide\n\nContent."
+        post_resp = tc.post("/api/ingest", files={"file": ("guide.md", content, "text/markdown")})
+        job_id = post_resp.json()["job_id"]
+
+        get_resp = tc.get(f"/api/ingest/{job_id}")
+        assert get_resp.status_code == 500
+        body = get_resp.json()
+        assert body["code"] == "INTERNAL_ERROR"
+        assert body["message"] == "Ingest failed."
+        assert "request_id" in body

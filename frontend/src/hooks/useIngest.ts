@@ -33,7 +33,7 @@ export function useIngest() {
         try {
           const updated = await getIngestJob(newJob.job_id)
           setJob(updated)
-          if (updated.status === 'done' || updated.status === 'failed') {
+          if (updated.status === 'done') {
             stopPolling()
           }
         } catch (e: unknown) {

@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
+INGEST_FAILED_MESSAGE = "Ingest failed."
+
 
 async def _run_compile(
     job_id: str,
@@ -32,7 +34,7 @@ async def _run_compile(
             "ingest.compile_failed",
             extra={"job_id": job_id, "ingest_filename": filename},
         )
-        store.update_job(job_id, status=JobStatus.FAILED, error="Ingest failed.")
+        store.update_job(job_id, status=JobStatus.FAILED, error=INGEST_FAILED_MESSAGE)
 
 
 @router.post("", status_code=202)
@@ -59,4 +61,6 @@ def get_job_status(
     job = store.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    if job.status == JobStatus.FAILED:
+        raise HTTPException(status_code=500, detail=job.error or INGEST_FAILED_MESSAGE)
     return job

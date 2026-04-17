@@ -65,7 +65,7 @@ class CompileAgent:
                 messages=[{"role": "user", "content": prompt}],
             )
         except Exception as exc:
-            logger.exception("llm.compile_failed")
+            logger.error("llm.compile_failed")
             raise LLMUpstreamError() from exc
 
         output = response.choices[0].message.content
