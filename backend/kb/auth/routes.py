@@ -25,7 +25,7 @@ def bootstrap_session(request: Request):
         max_age=settings.jwt_ttl_seconds,
         httponly=True,
         samesite="lax",
+        secure=settings.cookie_secure,
         path="/",
-        # secure=True in production — leave off for dev (http://localhost).
     )
     return response

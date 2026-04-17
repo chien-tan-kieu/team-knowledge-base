@@ -38,16 +38,19 @@ Pages touched: slug-one, slug-two
 
 
 class CompileAgent:
-    def __init__(self, fs: WikiFS, model: str) -> None:
+    def __init__(self, fs: WikiFS, model: str, max_context_pages: int = 10) -> None:
         self._fs = fs
         self._model = model
+        self._max_context_pages = max_context_pages
 
     async def compile(self, filename: str, raw_content: str) -> None:
         schema = self._fs.read_schema()
         index = self._fs.read_index()
 
         existing_pages = ""
-        for slug in self._fs.list_pages()[-10:]:
+        # Cap context to the most recent N pages so the prompt stays bounded as
+        # the wiki grows. The full index is still included above.
+        for slug in self._fs.list_pages()[-self._max_context_pages :]:
             page = self._fs.read_page(slug)
             existing_pages += f"\n--- {slug} ---\n{page.content}\n"
 

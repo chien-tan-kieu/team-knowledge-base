@@ -91,9 +91,9 @@ async def _llm_upstream_handler(request: Request, exc: LLMUpstreamError):
 
 async def _unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("unhandled_exception")
-    rid = _get_rid(request) or "unknown"
-    message = f"Something went wrong. Reference: {rid}."
-    return _response(request, 500, ErrorCode.INTERNAL_ERROR, message)
+    # Request id is returned in the `request_id` field and `X-Request-ID` header;
+    # we don't embed it in the human-readable message to avoid double display.
+    return _response(request, 500, ErrorCode.INTERNAL_ERROR, "Something went wrong.")
 
 
 def install_error_handlers(app: FastAPI) -> None:

@@ -26,7 +26,11 @@ async def _run_compile(
     store.update_job(job_id, status=JobStatus.RUNNING)
     try:
         fs.save_raw(filename, raw_content)
-        agent = CompileAgent(fs=fs, model=settings.llm_model)
+        agent = CompileAgent(
+            fs=fs,
+            model=settings.llm_model,
+            max_context_pages=settings.compile_max_context_pages,
+        )
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)
     except Exception:

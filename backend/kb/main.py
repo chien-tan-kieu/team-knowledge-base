@@ -16,7 +16,12 @@ from kb.middleware import RequestContextMiddleware
 def create_app() -> FastAPI:
     setup_logging(level=settings.log_level)
 
-    app = FastAPI(title="Knowledge Base API")
+    docs_kwargs = (
+        {}
+        if settings.expose_api_docs
+        else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    )
+    app = FastAPI(title="Knowledge Base API", **docs_kwargs)
 
     # Middleware: added innermost-first, runs outermost-first on requests.
     # Order on the wire: CORS → RequestContext → Auth → routes.
