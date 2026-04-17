@@ -38,6 +38,7 @@ export function useIngest() {
           }
         } catch (e: unknown) {
           setError(toApiError(e))
+          setJob(prev => prev ? { ...prev, status: 'failed' } : null)
           stopPolling()
         }
       }, 1500)
