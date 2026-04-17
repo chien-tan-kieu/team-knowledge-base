@@ -60,12 +60,12 @@ export function IngestDropzone({ onDrop, job, uploading }: Props) {
 
       {job && (
         <div className="bg-ivory border border-border-cream rounded-xl p-4 font-sans text-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-near-black font-medium">{job.filename}</span>
-            <span className={STATUS_COLORS[job.status]}>{STATUS_LABELS[job.status]}</span>
-          </div>
+          <p className={`font-medium ${STATUS_COLORS[job.status]}`}>
+            {STATUS_LABELS[job.status]}
+          </p>
+          <p className="mt-1 text-stone-gray text-xs">{job.filename}</p>
           {job.error && (
-            <p className="mt-2 text-error-crimson text-xs">{job.error}</p>
+            <p className="mt-1 text-error-crimson text-xs">{job.error}</p>
           )}
         </div>
       )}
