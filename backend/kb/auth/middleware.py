@@ -1,11 +1,10 @@
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from kb.auth.jwt import SessionTokenError, decode_session_jwt
 from kb.config import settings
-from kb.errors import ErrorCode
-from kb.logging import request_id_var
+from kb.errors import ErrorCode, _response
 from kb.auth.routes import COOKIE_NAME
 
 _BYPASS_PREFIXES = (
@@ -18,18 +17,11 @@ _BYPASS_PREFIXES = (
 
 
 def _is_bypass(path: str) -> bool:
-    return any(path == p or path.startswith(p + "/") or path == p for p in _BYPASS_PREFIXES)
+    return any(path == p or path.startswith(p + "/") for p in _BYPASS_PREFIXES)
 
 
-def _unauthenticated_response() -> JSONResponse:
-    return JSONResponse(
-        status_code=401,
-        content={
-            "code": ErrorCode.UNAUTHENTICATED.value,
-            "message": "Session required.",
-            "request_id": request_id_var.get(),
-        },
-    )
+def _unauthenticated_response(request: Request) -> Response:
+    return _response(request, 401, ErrorCode.UNAUTHENTICATED, "Session required.")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -39,10 +31,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         token = request.cookies.get(COOKIE_NAME)
         if not token:
-            return _unauthenticated_response()
+            return _unauthenticated_response(request)
         try:
             decode_session_jwt(token, secret=settings.jwt_secret)
         except SessionTokenError:
-            return _unauthenticated_response()
+            return _unauthenticated_response(request)
 
         return await call_next(request)

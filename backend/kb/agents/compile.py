@@ -47,7 +47,7 @@ class CompileAgent:
         index = self._fs.read_index()
 
         existing_pages = ""
-        for slug in self._fs.list_pages():
+        for slug in self._fs.list_pages()[-10:]:
             page = self._fs.read_page(slug)
             existing_pages += f"\n--- {slug} ---\n{page.content}\n"
 

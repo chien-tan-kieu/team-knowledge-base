@@ -112,3 +112,8 @@ export async function ensureSession(): Promise<void> {
 export function resetSessionPromise(): void {
   sessionPromise = null
 }
+
+export function coerceApiError(e: unknown, fallbackMessage: string = 'Request failed.'): ApiError {
+  if (e instanceof ApiError) return e
+  return new ApiError({ code: 'INTERNAL_ERROR', message: fallbackMessage, requestId: null, status: 0 })
+}

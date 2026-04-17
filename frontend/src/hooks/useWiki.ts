@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react'
-import { ApiError, getWikiPages, getWikiPage } from '../lib/api'
+import { coerceApiError, getWikiPages, getWikiPage } from '../lib/api'
 import type { WikiPage } from '../lib/types'
-
-function toApiError(e: unknown): ApiError {
-  if (e instanceof ApiError) return e
-  return new ApiError({ code: 'INTERNAL_ERROR', message: 'Request failed.', requestId: null, status: 0 })
-}
 
 export function useWikiPages() {
   const [pages, setPages] = useState<string[]>([])
@@ -18,7 +13,7 @@ export function useWikiPages() {
         setPages(p)
         setError(null)
       })
-      .catch(e => setError(toApiError(e)))
+      .catch(e => setError(coerceApiError(e)))
       .finally(() => setLoading(false))
   }, [])
 
@@ -37,7 +32,7 @@ export function useWikiPage(slug: string | null) {
     setError(null)
     getWikiPage(slug)
       .then(setPage)
-      .catch(e => setError(toApiError(e)))
+      .catch(e => setError(coerceApiError(e)))
       .finally(() => setLoading(false))
   }, [slug])
 

@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, ingestFile, getIngestJob } from '../lib/api'
+import { coerceApiError, ingestFile, getIngestJob } from '../lib/api'
 import type { IngestJob } from '../lib/types'
-
-function toApiError(e: unknown): ApiError {
-  if (e instanceof ApiError) return e
-  return new ApiError({ code: 'INTERNAL_ERROR', message: 'Upload failed.', requestId: null, status: 0 })
-}
 
 export function useIngest() {
   const [job, setJob] = useState<IngestJob | null>(null)
@@ -32,18 +27,18 @@ export function useIngest() {
       pollRef.current = setInterval(async () => {
         try {
           const updated = await getIngestJob(newJob.job_id)
-          setJob(updated)
+          setJob(prev => prev?.status === updated.status ? prev : updated)
           if (updated.status === 'done') {
             stopPolling()
           }
         } catch (e: unknown) {
-          setError(toApiError(e))
+          setError(coerceApiError(e, 'Upload failed.'))
           setJob(prev => prev ? { ...prev, status: 'failed' } : null)
           stopPolling()
         }
       }, 1500)
     } catch (e: unknown) {
-      setError(toApiError(e))
+      setError(coerceApiError(e, 'Upload failed.'))
     } finally {
       setUploading(false)
     }
