@@ -34,7 +34,8 @@ def test_session_rejects_disallowed_origin():
     assert r.json()["code"] == "UNAUTHENTICATED"
 
 
-def test_session_rejects_missing_origin():
+def test_session_allows_missing_origin_for_same_origin_requests():
     tc = TestClient(_app())
     r = tc.get("/api/auth/session")
-    assert r.status_code == 401
+    assert r.status_code == 204
+    assert r.cookies.get("kb_session") is not None

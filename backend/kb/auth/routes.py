@@ -11,7 +11,7 @@ COOKIE_NAME = "kb_session"
 @router.get("/session")
 def bootstrap_session(request: Request):
     origin = request.headers.get("origin")
-    if origin not in settings.allowed_origins:
+    if origin and origin not in settings.allowed_origins:
         raise HTTPException(status_code=401, detail="Session required.")
 
     token = encode_session_jwt(
