@@ -2,6 +2,7 @@ import type { WikiPage, IngestJob, LintResult, ApiErrorBody } from './types'
 
 export class ApiError extends Error {
   code: string
+  message: string
   requestId: string | null
   status: number
 
@@ -9,6 +10,7 @@ export class ApiError extends Error {
     super(init.message)
     this.name = 'ApiError'
     this.code = init.code
+    this.message = init.message
     this.requestId = init.requestId
     this.status = init.status
   }
