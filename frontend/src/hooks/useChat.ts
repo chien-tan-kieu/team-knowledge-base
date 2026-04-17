@@ -20,13 +20,14 @@ interface SSEFrame {
 
 function parseSSEFrames(buffer: string): { frames: SSEFrame[]; rest: string } {
   const frames: SSEFrame[] = []
-  const parts = buffer.split('\n\n')
+  // SSE spec allows \n, \r, or \r\n line terminators. sse-starlette emits \r\n by default.
+  const parts = buffer.split(/\r?\n\r?\n/)
   const rest = parts.pop() ?? ''
   for (const part of parts) {
     if (!part.trim()) continue
     let event: string | null = null
     const dataLines: string[] = []
-    for (const line of part.split('\n')) {
+    for (const line of part.split(/\r?\n/)) {
       if (line.startsWith('event: ')) event = line.slice(7).trim()
       else if (line.startsWith('data: ')) dataLines.push(line.slice(6))
     }
