@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from kb.agents.compile import CompileAgent
+from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
 
@@ -75,3 +76,12 @@ async def test_compile_appends_log(knowledge_dir):
 
     log = (knowledge_dir / "wiki" / "log.md").read_text()
     assert "ingest" in log
+
+
+async def test_compile_agent_wraps_litellm_errors(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    agent = CompileAgent(fs=fs, model="test-model")
+
+    with patch("kb.agents.compile.litellm.acompletion", side_effect=RuntimeError("boom")):
+        with pytest.raises(LLMUpstreamError):
+            await agent.compile("file.md", "raw")

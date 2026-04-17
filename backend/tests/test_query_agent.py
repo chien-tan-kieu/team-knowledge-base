@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from kb.agents.query import QueryAgent
+from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
 
@@ -58,3 +59,13 @@ async def test_query_returns_citations(knowledge_dir):
             tokens.append(token)
 
     assert any("deploy-process" in t for t in tokens)
+
+
+async def test_query_agent_wraps_litellm_errors(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    agent = QueryAgent(fs=fs, model="test-model")
+
+    with patch("kb.agents.query.litellm.acompletion", side_effect=RuntimeError("boom")):
+        with pytest.raises(LLMUpstreamError):
+            async for _ in agent.query("hello?"):
+                pass

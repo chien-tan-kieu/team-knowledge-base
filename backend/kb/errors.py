@@ -14,3 +14,11 @@ class ErrorResponse(BaseModel):
     code: ErrorCode
     message: str
     request_id: str | None = None
+
+
+class LLMUpstreamError(Exception):
+    """Raised when a downstream LLM call fails."""
+
+    def __init__(self, message: str = "The language model is currently unavailable.") -> None:
+        super().__init__(message)
+        self.message = message

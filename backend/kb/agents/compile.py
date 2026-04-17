@@ -1,5 +1,9 @@
+import logging
 import litellm
+from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
+
+logger = logging.getLogger(__name__)
 
 
 COMPILE_PROMPT = """You are a knowledge base compiler. You receive a raw markdown document and the current wiki state, and you produce structured wiki pages following the schema.
@@ -55,10 +59,15 @@ class CompileAgent:
             raw_content=raw_content,
         )
 
-        response = await litellm.acompletion(
-            model=self._model,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = await litellm.acompletion(
+                model=self._model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as exc:
+            logger.exception("llm.compile_failed")
+            raise LLMUpstreamError() from exc
+
         output = response.choices[0].message.content
         self._parse_and_write(output)
 

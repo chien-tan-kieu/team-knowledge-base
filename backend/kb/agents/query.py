@@ -1,6 +1,10 @@
 from typing import AsyncIterator
+import logging
 import litellm
+from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
+
+logger = logging.getLogger(__name__)
 
 
 SELECT_PROMPT = """You are a knowledge base search assistant.
@@ -36,10 +40,15 @@ class QueryAgent:
         index = self._fs.read_index()
 
         # Step 1: select relevant pages (non-streaming, fast)
-        select_response = await litellm.acompletion(
-            model=self._model,
-            messages=[{"role": "user", "content": SELECT_PROMPT.format(index=index, question=question)}],
-        )
+        try:
+            select_response = await litellm.acompletion(
+                model=self._model,
+                messages=[{"role": "user", "content": SELECT_PROMPT.format(index=index, question=question)}],
+            )
+        except Exception as exc:
+            logger.exception("llm.select_failed")
+            raise LLMUpstreamError() from exc
+
         slugs_raw = select_response.choices[0].message.content.strip()
         slugs = [s.strip() for s in slugs_raw.split(",") if s.strip()]
 
@@ -57,12 +66,18 @@ class QueryAgent:
             return
 
         # Step 3: stream the answer
-        stream = await litellm.acompletion(
-            model=self._model,
-            messages=[{"role": "user", "content": ANSWER_PROMPT.format(pages=pages_content, question=question)}],
-            stream=True,
-        )
-        async for chunk in stream:
-            token = chunk.choices[0].delta.content or ""
-            if token:
-                yield token
+        try:
+            stream = await litellm.acompletion(
+                model=self._model,
+                messages=[{"role": "user", "content": ANSWER_PROMPT.format(pages=pages_content, question=question)}],
+                stream=True,
+            )
+            async for chunk in stream:
+                token = chunk.choices[0].delta.content or ""
+                if token:
+                    yield token
+        except LLMUpstreamError:
+            raise
+        except Exception as exc:
+            logger.exception("llm.answer_failed")
+            raise LLMUpstreamError() from exc
