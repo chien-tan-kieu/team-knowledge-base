@@ -32,8 +32,9 @@ export function useIngest() {
             stopPolling()
           }
         } catch (e: unknown) {
-          setError(coerceApiError(e, 'Upload failed.'))
-          setJob(prev => prev ? { ...prev, status: 'failed' } : null)
+          const apiErr = coerceApiError(e, 'Upload failed.')
+          setError(apiErr)
+          setJob(prev => prev ? { ...prev, status: 'failed', error: apiErr.message } : null)
           stopPolling()
         }
       }, 1500)
