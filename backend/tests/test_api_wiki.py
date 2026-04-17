@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs
 from kb.wiki.fs import WikiFS
+from tests.conftest import authenticate
 
 
 @pytest.fixture
@@ -12,7 +13,9 @@ def client(knowledge_dir):
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     fs.write_page("deploy-process", "# Deploy Process\n\nRun `make deploy`.")
     fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
-    return TestClient(app), fs
+    tc = TestClient(app)
+    authenticate(tc)
+    return tc, fs
 
 
 def test_list_wiki_pages(client):

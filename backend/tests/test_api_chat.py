@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs
 from kb.wiki.fs import WikiFS
+from tests.conftest import authenticate
 
 
 async def _mock_query(question: str):
@@ -16,7 +17,9 @@ def client(knowledge_dir):
     app = create_app()
     fs = WikiFS(knowledge_dir)
     app.dependency_overrides[get_wiki_fs] = lambda: fs
-    return TestClient(app), fs
+    tc = TestClient(app)
+    authenticate(tc)
+    return tc, fs
 
 
 def test_chat_returns_sse_stream(client):

@@ -5,6 +5,7 @@ from kb.main import create_app
 from kb.api.deps import get_wiki_fs, get_job_store
 from kb.wiki.fs import WikiFS
 from kb.jobs.store import InMemoryJobStore
+from tests.conftest import authenticate
 
 
 @pytest.fixture
@@ -14,7 +15,9 @@ def client(knowledge_dir):
     store = InMemoryJobStore()
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     app.dependency_overrides[get_job_store] = lambda: store
-    return TestClient(app), store
+    tc = TestClient(app)
+    authenticate(tc)
+    return tc, store
 
 
 def test_ingest_returns_job_id(client):
