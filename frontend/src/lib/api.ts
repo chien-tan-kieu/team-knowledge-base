@@ -14,9 +14,41 @@ export class ApiError extends Error {
   }
 }
 
+function isApiErrorBody(value: unknown): value is ApiErrorBody {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).code === 'string' &&
+    typeof (value as Record<string, unknown>).message === 'string'
+  )
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
+  const requestIdHeader = res.headers.get('X-Request-ID')
+  try {
+    const body: unknown = await res.json()
+    if (isApiErrorBody(body)) {
+      return new ApiError({
+        code: body.code,
+        message: body.message,
+        requestId: body.request_id ?? requestIdHeader,
+        status: res.status,
+      })
+    }
+  } catch {
+    // Fall through to synthetic error below.
+  }
+  return new ApiError({
+    code: 'INTERNAL_ERROR',
+    message: `Request failed (${res.status}).`,
+    requestId: requestIdHeader,
+    status: res.status,
+  })
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
-  if (!res.ok) throw new Error(`API error ${res.status}: ${url}`)
+  const res = await fetch(url, { credentials: 'include', ...init })
+  if (!res.ok) throw await toApiError(res)
   return res.json() as Promise<T>
 }
 
@@ -50,9 +82,10 @@ export async function runLint(): Promise<LintResult> {
 export async function startChat(question: string): Promise<Response> {
   const res = await fetch('/api/chat', {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify({ question }),
   })
-  if (!res.ok) throw new Error(`Chat API error ${res.status}`)
+  if (!res.ok) throw await toApiError(res)
   return res
 }
