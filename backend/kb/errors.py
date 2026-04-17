@@ -1,5 +1,16 @@
+import logging
 from enum import Enum
+
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException
+from starlette.requests import Request
+
+from kb.logging import request_id_var
+
+logger = logging.getLogger(__name__)
 
 
 class ErrorCode(str, Enum):
@@ -22,18 +33,6 @@ class LLMUpstreamError(Exception):
     def __init__(self, message: str = "The language model is currently unavailable.") -> None:
         super().__init__(message)
         self.message = message
-
-
-import logging
-from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException
-from starlette.requests import Request
-
-from kb.logging import request_id_var
-
-logger = logging.getLogger(__name__)
 
 
 _STATUS_TO_CODE = {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { coerceApiError, ingestFile, getIngestJob } from '../lib/api'
+import { ApiError, coerceApiError, ingestFile, getIngestJob } from '../lib/api'
 import type { IngestJob } from '../lib/types'
 
 export function useIngest() {

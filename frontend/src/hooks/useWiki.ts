@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { coerceApiError, getWikiPages, getWikiPage } from '../lib/api'
+import { ApiError, coerceApiError, getWikiPages, getWikiPage } from '../lib/api'
 import type { WikiPage } from '../lib/types'
 
 export function useWikiPages() {
