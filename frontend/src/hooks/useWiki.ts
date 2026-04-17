@@ -32,6 +32,7 @@ export function useWikiPage(slug: string | null) {
 
   useEffect(() => {
     if (!slug) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting loading/error on slug change is the canonical pattern.
     setLoading(true)
     setError(null)
     getWikiPage(slug)

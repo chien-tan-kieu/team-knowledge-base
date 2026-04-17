@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getWikiPages, getWikiPage, ingestFile, startChat, ApiError, ensureSession, resetSessionPromise } from '../api'
+import { getWikiPages, getWikiPage, ingestFile, ApiError, ensureSession, resetSessionPromise } from '../api'
 
 beforeEach(() => {
   vi.restoreAllMocks()

@@ -29,6 +29,7 @@ export function SessionGate({ children }: Props) {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bootstrap() kicks off async work; setState fires after await, not synchronously.
     bootstrap()
   }, [bootstrap])
 
