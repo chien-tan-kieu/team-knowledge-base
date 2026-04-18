@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '../chatStore'
+import { ApiError } from '../../lib/api'
 
 function makeSSEResponse(frames: string[]) {
   const body = frames.map(f => `data: ${f}\r\n\r\n`).join('')
@@ -162,5 +163,43 @@ describe('useChatStore.editLast', () => {
     // Messages should reflect only the single send, not the edit.
     const { messages } = useChatStore.getState()
     expect(messages[0].content).toBe('q')
+  })
+})
+
+describe('useChatStore.newChat', () => {
+  it('resets messages and error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeSSEResponse(['Answer.'])))
+    await useChatStore.getState().send('q')
+    useChatStore.setState({ error: new ApiError({
+      code: 'x', message: 'y', requestId: null, status: 500,
+    }) })
+    useChatStore.getState().newChat()
+    const { messages, error, streaming } = useChatStore.getState()
+    expect(messages).toEqual([])
+    expect(error).toBeNull()
+    expect(streaming).toBe(false)
+  })
+
+  it('stops a streaming send before clearing', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+        controller.enqueue(new TextEncoder().encode('data: Partial\r\n\r\n'))
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, init) => {
+      const signal = (init as RequestInit).signal
+      signal?.addEventListener('abort', () => {
+        streamController?.error(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      })
+      return Promise.resolve({ ok: true, body: stream.pipeThrough(new TransformStream()) } as unknown as Response)
+    }))
+
+    const sendPromise = useChatStore.getState().send('hi')
+    await new Promise(r => setTimeout(r, 10))
+    useChatStore.getState().newChat()
+    await sendPromise
+    expect(useChatStore.getState().messages).toEqual([])
   })
 })

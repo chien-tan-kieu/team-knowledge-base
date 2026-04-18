@@ -7,5 +7,8 @@ export function useChat() {
     streaming: s.streaming,
     error: s.error,
     sendMessage: s.send,
+    stop: s.stop,
+    editLast: s.editLast,
+    newChat: s.newChat,
   })))
 }

@@ -60,6 +60,7 @@ interface ChatState {
   send: (content: string) => Promise<void>
   stop: () => void
   editLast: (newContent: string) => Promise<void>
+  newChat: () => void
   clearError: () => void
 }
 
@@ -83,6 +84,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (lastUserIdx < 0) return
     set({ messages: msgs.slice(0, lastUserIdx) })
     await get().send(newContent)
+  },
+
+  newChat: () => {
+    if (get().streaming) abortRef.current?.abort()
+    set({ messages: [], streaming: false, error: null })
   },
 
   send: async (content: string) => {
