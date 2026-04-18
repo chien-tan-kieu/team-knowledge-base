@@ -59,6 +59,7 @@ interface ChatState {
   error: ApiError | null
   send: (content: string) => Promise<void>
   stop: () => void
+  editLast: (newContent: string) => Promise<void>
   clearError: () => void
 }
 
@@ -69,6 +70,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearError: () => set({ error: null }),
   stop: () => {
     abortRef.current?.abort()
+  },
+
+  editLast: async (newContent: string) => {
+    if (get().streaming) return
+    const msgs = get().messages
+    // Find the last user message index.
+    let lastUserIdx = -1
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') { lastUserIdx = i; break }
+    }
+    if (lastUserIdx < 0) return
+    set({ messages: msgs.slice(0, lastUserIdx) })
+    await get().send(newContent)
   },
 
   send: async (content: string) => {

@@ -136,3 +136,31 @@ describe('useChatStore.stop', () => {
     expect(messages[messages.length - 1].content).toContain('Partial')
   })
 })
+
+describe('useChatStore.editLast', () => {
+  it('truncates to before the last user message and re-sends', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(makeSSEResponse(['Old answer.']))
+      .mockResolvedValueOnce(makeSSEResponse(['New answer.']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await useChatStore.getState().send('first question')
+    await useChatStore.getState().editLast('edited question')
+
+    const { messages } = useChatStore.getState()
+    // Should be exactly one user + one assistant pair after the edit.
+    expect(messages).toHaveLength(2)
+    expect(messages[0].content).toBe('edited question')
+    expect(messages[1].content).toBe('New answer.')
+  })
+
+  it('no-ops while streaming', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeSSEResponse(['Answer.'])))
+    const sendPromise = useChatStore.getState().send('q')
+    await useChatStore.getState().editLast('x')
+    await sendPromise
+    // Messages should reflect only the single send, not the edit.
+    const { messages } = useChatStore.getState()
+    expect(messages[0].content).toBe('q')
+  })
+})
