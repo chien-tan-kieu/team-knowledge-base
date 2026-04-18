@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import pytest
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
@@ -76,3 +78,23 @@ def test_chat_emits_terminal_error_event_on_stream_failure(client):
     assert "data: hello" in body
     assert "event: error" in body
     assert "UPSTREAM_LLM_ERROR" in body
+
+
+async def _mock_query_cancelled(messages):
+    yield "partial "
+    raise asyncio.CancelledError()
+
+
+def test_chat_does_not_log_error_on_client_cancellation(client, caplog):
+    tc, _ = client
+    with caplog.at_level(logging.ERROR, logger="kb.api.chat"):
+        with patch("kb.api.chat.QueryAgent") as MockAgent:
+            MockAgent.return_value.query = _mock_query_cancelled
+            with tc.stream("POST", "/api/chat", json={"messages": [
+                {"role": "user", "content": "hi"}
+            ]}) as resp:
+                # Drain at least one byte, then close.
+                for _ in resp.iter_bytes():
+                    break
+    # Endpoint must not log CancelledError as an error.
+    assert not any("chat.stream_failed" in r.message for r in caplog.records)

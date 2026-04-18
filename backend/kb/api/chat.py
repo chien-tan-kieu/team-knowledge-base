@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -48,8 +49,10 @@ async def chat(
 
     async def event_generator():
         try:
-            async for token in agent.query(request.question):
+            async for token in agent.query([m.model_dump() for m in request.messages]):
                 yield {"data": token}
+        except asyncio.CancelledError:
+            raise
         except LLMUpstreamError as exc:
             logger.warning("chat.stream_llm_error")
             yield _error_event(ErrorCode.UPSTREAM_LLM_ERROR, exc.message)
