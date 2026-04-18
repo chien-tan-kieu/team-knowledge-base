@@ -6,7 +6,7 @@ import { PreviewPanel } from '../components/PreviewPanel'
 import { useChat } from '../hooks/useChat'
 
 export function ChatPage() {
-  const { messages, streaming, sendMessage, error } = useChat()
+  const { messages, streaming, sendMessage, stop, error } = useChat()
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -33,16 +33,13 @@ export function ChatPage() {
         {messages.map(msg => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
-        {streaming && (
-          <div className="text-stone-gray text-xs font-sans animate-pulse">Thinking…</div>
-        )}
         {error && <ErrorBanner error={error} />}
         <div ref={bottomRef} />
         <PreviewPanel />
       </div>
 
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-border-cream bg-ivory pb-safe">
-        <ChatInput onSend={sendMessage} disabled={streaming} />
+        <ChatInput onSend={sendMessage} streaming={streaming} onStop={stop} />
       </div>
     </div>
   )
