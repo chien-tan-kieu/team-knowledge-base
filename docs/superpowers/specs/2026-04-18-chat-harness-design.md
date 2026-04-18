@@ -169,9 +169,15 @@ export function useChat() {
 2. Module-level `abortRef.current = new AbortController()`.
 3. `fetch('/api/chat', { signal, body: JSON.stringify({ messages }) })`. `messages` excludes the empty assistant placeholder.
 4. Parse SSE frames (keep the existing `parseSSEFrames` helper from `useChat.ts`).
-5. Accumulate tokens onto the placeholder; when a token contains `__CITATIONS__:`, split and parse each entry with `/^([\w-]+):(\d+)(?:-(\d+))?$/`. Missing end → `end = start`. Malformed entries are skipped silently.
-6. Stream end / abort / error → `streaming = false`.
-7. On `AbortError` in `catch`, swallow silently (intentional user action).
+5. Accumulate every token frame into a single `rawContent` buffer and append to the placeholder's `content`. **Do not** check for the citation marker per frame — it's almost always split across SSE frames (tokens are 1–4 chars; the marker is 14). The per-frame `token.includes('__CITATIONS__:')` check in today's code is a latent bug masked by test fixtures that emit the marker as one chunk.
+6. Marker splitting happens at the **accumulated-message level**, not per frame:
+   - After each append, if `rawContent` contains `__CITATIONS__:`, split at the **last** occurrence.
+   - Left side → trim trailing whitespace/newlines → becomes the message's visible `content`.
+   - Right side → parse comma-separated entries with `/^([\w-]+):(\d+)(?:-(\d+))?$/`. Missing end → `end = start`. Malformed entries skipped silently. Valid entries → `citations[]`.
+   - Until the marker arrives, the last line of `content` may contain partial marker characters (e.g., `__CIT`) for 1–2 frames; acceptable MVP UX. A hold-back tail buffer (defer rendering the last 14 chars while streaming) is a future polish — not in scope.
+7. **Invariant:** the assistant message's `content` field in the store never contains the `__CITATIONS__:` marker or anything after it — the split in step 6 strips it. History sent to `/api/chat` on subsequent turns therefore contains no citation markers, so the LLM never sees its own output format echoed back.
+8. Stream end / abort / error → `streaming = false`.
+9. On `AbortError` in `catch`, swallow silently (intentional user action).
 
 ### `stop` action
 
@@ -275,7 +281,7 @@ On mount and whenever `linesParam` or `contentRef` children change:
 
 | File | Coverage |
 |---|---|
-| `stores/__tests__/chatStore.test.ts` | send/stop/editLast/newChat; AbortError swallowed; citation parsing (`slug:15-22`, `slug:30`, malformed) |
+| `stores/__tests__/chatStore.test.ts` | send/stop/editLast/newChat; AbortError swallowed; citation parsing (`slug:15-22`, `slug:30`, malformed); **marker deliberately split across multiple SSE frames** (e.g., `['__', 'CITATIONS', '__:', 'deploy-process:15-22']`) still parses correctly and `content` has no marker residue |
 | `components/__tests__/ReferenceChip.test.tsx` | Label format; 2s hover opens panel; leaving before 2s cancels; dblclick navigates with `?lines=`; no-op single click |
 | `components/__tests__/PreviewPanel.test.tsx` | Open/close via Esc / outside click / mouseleave region; line-numbered source with highlighted range; fetch dedup |
 | `components/__tests__/MessageEditor.test.tsx` | Click last user bubble → editor; Save → `editLast`; Cancel → restore bubble |
@@ -351,6 +357,10 @@ These decisions were made with alternatives considered; recording them here so f
 
 - Shows actual line numbers in the preview, making the "cite lines 15–22" connection explicit.
 - Gives room for context without covering the assistant reply.
+
+### Message-level marker splitting over per-frame detection
+
+The current code checks `token.includes('__CITATIONS__:')` per SSE frame. Tokens stream 1–4 chars at a time; the marker is 14 chars. In production it will split across frames and fail to parse. Existing tests happen to pass only because fixtures emit the marker as one chunk. The spec fixes this by accumulating content first and splitting on the last `__CITATIONS__:` occurrence at the message level — with a mandatory test that deliberately splits the marker across frames. A hold-back tail buffer to hide partial-marker characters during streaming is deferred.
 
 ### Block-level highlight over character-precision
 
