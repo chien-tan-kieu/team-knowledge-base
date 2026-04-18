@@ -49,11 +49,23 @@ describe('ReferenceChip', () => {
     expect(usePreviewStore.getState().active).toBeNull()
   })
 
-  it('double-click closes preview and does not trigger hover timer', () => {
+  it('double-click closes any open preview', () => {
     vi.useRealTimers()
     renderChip()
+    // Arrange: pre-open a preview so closePreview has observable effect.
+    act(() => {
+      usePreviewStore.getState().openPreview({ slug: 'other', start: 1, end: 1 })
+    })
+    expect(usePreviewStore.getState().active).not.toBeNull()
+
     const chip = screen.getByRole('button')
     fireEvent.doubleClick(chip)
     expect(usePreviewStore.getState().active).toBeNull()
+  })
+
+  it('renders with data-reference-chip attribute for outside-click filter', () => {
+    renderChip()
+    const chip = screen.getByRole('button')
+    expect(chip).toHaveAttribute('data-reference-chip')
   })
 })
