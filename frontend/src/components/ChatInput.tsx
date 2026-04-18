@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 
 interface Props {
   onSend: (message: string) => void
@@ -7,6 +7,14 @@ interface Props {
 
 export function ChatInput({ onSend, disabled = false }: Props) {
   const [value, setValue] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
 
   function handleSend() {
     const trimmed = value.trim()
@@ -25,6 +33,7 @@ export function ChatInput({ onSend, disabled = false }: Props) {
   return (
     <div className="flex gap-2 items-end bg-ivory border border-border-warm rounded-xl px-3 sm:px-4 py-2 shadow-whisper">
       <textarea
+        ref={textareaRef}
         value={value}
         onChange={e => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -32,7 +41,7 @@ export function ChatInput({ onSend, disabled = false }: Props) {
         rows={1}
         disabled={disabled}
         autoComplete="off"
-        className="flex-1 min-w-0 resize-none bg-transparent text-base md:text-sm text-near-black placeholder:text-warm-silver outline-none font-sans leading-relaxed"
+        className="flex-1 min-w-0 resize-none max-h-48 overflow-y-auto bg-transparent text-base md:text-sm text-near-black placeholder:text-warm-silver outline-none font-sans leading-relaxed"
       />
       <button
         onClick={handleSend}
