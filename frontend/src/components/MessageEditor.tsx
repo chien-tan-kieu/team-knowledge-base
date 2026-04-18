@@ -10,11 +10,18 @@ export function MessageEditor({ initial, onSave, onCancel }: Props) {
   const [value, setValue] = useState(initial)
   const ref = useRef<HTMLTextAreaElement>(null)
 
+  // Focus once on mount.
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
     el.focus()
     el.setSelectionRange(el.value.length, el.value.length)
+  }, [])
+
+  // Auto-grow on value change.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [value])
