@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ChatMessage as ChatMessageType } from '../lib/types'
 import { ReferenceChip } from './ReferenceChip'
 import { MessageEditor } from './MessageEditor'
@@ -13,6 +13,10 @@ export function ChatMessage({ message, editable, onEditSave }: Props) {
   const isUser = message.role === 'user'
   const [editing, setEditing] = useState(false)
   const canEdit = isUser && editable && !!onEditSave
+
+  // If editability is revoked (e.g. a newer user message arrives), close the
+  // editor so its Save cannot clobber a different message via editLast().
+  useEffect(() => { if (!canEdit && editing) setEditing(false) }, [canEdit, editing])
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -30,6 +34,13 @@ export function ChatMessage({ message, editable, onEditSave }: Props) {
       {/* Bubble */}
       <div
         onClick={() => { if (canEdit && !editing) setEditing(true) }}
+        onKeyDown={(e) => {
+          if (!canEdit || editing) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setEditing(true)
+          }
+        }}
         role={canEdit && !editing ? 'button' : undefined}
         tabIndex={canEdit && !editing ? 0 : undefined}
         className={`min-w-0 max-w-[calc(100%-2.5rem)] sm:max-w-prose rounded-xl px-3 py-2 sm:px-4 sm:py-3 text-sm leading-relaxed font-sans shadow-whisper ${

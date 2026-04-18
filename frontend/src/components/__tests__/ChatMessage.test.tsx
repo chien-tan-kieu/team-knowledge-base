@@ -46,4 +46,35 @@ describe('ChatMessage', () => {
     fireEvent.click(screen.getByText('hi'))
     expect(screen.queryByRole('textbox')).toBeNull()
   })
+
+  it('Enter activates edit mode on the editable bubble', () => {
+    const msg: ChatMessageType = { id: '1', role: 'user', content: 'hi', citations: [] }
+    render(<MemoryRouter><ChatMessage message={msg} editable onEditSave={() => {}} /></MemoryRouter>)
+    // Focus the bubble via the role=button target, then press Enter.
+    const bubble = screen.getByRole('button')
+    bubble.focus()
+    fireEvent.keyDown(bubble, { key: 'Enter' })
+    expect(screen.getByRole('textbox')).toHaveValue('hi')
+  })
+
+  it('Space activates edit mode on the editable bubble', () => {
+    const msg: ChatMessageType = { id: '1', role: 'user', content: 'hi', citations: [] }
+    render(<MemoryRouter><ChatMessage message={msg} editable onEditSave={() => {}} /></MemoryRouter>)
+    const bubble = screen.getByRole('button')
+    fireEvent.keyDown(bubble, { key: ' ' })
+    expect(screen.getByRole('textbox')).toHaveValue('hi')
+  })
+
+  it('closes the editor when editable flips to false', () => {
+    const msg: ChatMessageType = { id: '1', role: 'user', content: 'hi', citations: [] }
+    const { rerender } = render(
+      <MemoryRouter><ChatMessage message={msg} editable onEditSave={() => {}} /></MemoryRouter>
+    )
+    fireEvent.click(screen.getByText('hi'))
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    rerender(
+      <MemoryRouter><ChatMessage message={msg} editable={false} onEditSave={() => {}} /></MemoryRouter>
+    )
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
 })
