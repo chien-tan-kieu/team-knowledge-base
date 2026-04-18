@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Citation } from '../lib/types'
-import { usePreviewStore } from '../stores/previewStore'
+import { usePreviewStore, scheduleClose, cancelClose } from '../stores/previewStore'
 
 interface Props { citation: Citation }
 
@@ -29,6 +29,7 @@ export function ReferenceChip({ citation }: Props) {
   }
 
   function onMouseEnter() {
+    cancelClose()
     clearOpenTimer()
     openTimer.current = window.setTimeout(() => {
       usePreviewStore.getState().openPreview(citation)
@@ -38,10 +39,16 @@ export function ReferenceChip({ citation }: Props) {
 
   function onMouseLeave() {
     clearOpenTimer()
+    // If a preview is already open (for this chip or any other), schedule
+    // close — panel's mouseenter will cancel it if the mouse reaches the panel.
+    if (usePreviewStore.getState().active) {
+      scheduleClose()
+    }
   }
 
   function onDoubleClick() {
     clearOpenTimer()
+    cancelClose()
     usePreviewStore.getState().closePreview()
     const range = citation.start === citation.end
       ? `${citation.start}`

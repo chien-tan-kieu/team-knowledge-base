@@ -54,4 +54,78 @@ describe('PreviewPanel', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(usePreviewStore.getState().active).toBeNull()
   })
+
+  it('closes on outside click', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ slug: 'x', content: 'a\nb\nc' }),
+    }))
+
+    render(
+      <div>
+        <div data-testid="outside">outside</div>
+        <PreviewPanel />
+      </div>
+    )
+    act(() => {
+      usePreviewStore.getState().openPreview({ slug: 'x', start: 1, end: 1 })
+    })
+    await waitFor(() => screen.getByText(/lines 1/))
+
+    const outside = screen.getByTestId('outside')
+    fireEvent.mouseDown(outside)
+    expect(usePreviewStore.getState().active).toBeNull()
+  })
+
+  it('does NOT close when the click is on an element with data-reference-chip', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ slug: 'x', content: 'a\nb\nc' }),
+    }))
+
+    render(
+      <div>
+        <button data-reference-chip data-testid="chip">chip</button>
+        <PreviewPanel />
+      </div>
+    )
+    act(() => {
+      usePreviewStore.getState().openPreview({ slug: 'x', start: 1, end: 1 })
+    })
+    await waitFor(() => screen.getByText(/lines 1/))
+
+    const chip = screen.getByTestId('chip')
+    fireEvent.mouseDown(chip)
+    expect(usePreviewStore.getState().active).not.toBeNull()
+  })
+
+  it('shows error when fetch fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: { get: () => null },
+      json: async () => ({}),
+    }))
+
+    render(<PreviewPanel />)
+    act(() => {
+      usePreviewStore.getState().openPreview({ slug: 'x', start: 1, end: 1 })
+    })
+
+    await waitFor(() => expect(screen.getByText(/Unable to load preview/)).toBeInTheDocument())
+  })
+
+  it('shows "Range extends beyond page" when no lines are in range', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ slug: 'x', content: 'a\nb\nc' }),
+    }))
+
+    render(<PreviewPanel />)
+    act(() => {
+      usePreviewStore.getState().openPreview({ slug: 'x', start: 10, end: 15 })
+    })
+
+    await waitFor(() => expect(screen.getByText(/Range extends beyond page/)).toBeInTheDocument())
+  })
 })

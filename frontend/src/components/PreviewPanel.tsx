@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { usePreviewStore } from '../stores/previewStore'
+import { usePreviewStore, scheduleClose, cancelClose } from '../stores/previewStore'
 import { getWikiContent } from '../lib/wikiCache'
 
 const CONTEXT_LINES = 3
-const HOVER_CLOSE_MS = 200
 
 export function PreviewPanel() {
   const active = usePreviewStore(s => s.active)
   const close = usePreviewStore(s => s.closePreview)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
-  const closeTimer = useRef<number | null>(null)
 
   useEffect(() => {
     if (!active) {
@@ -48,12 +47,21 @@ export function PreviewPanel() {
     }
   }, [active, close])
 
+  useEffect(() => {
+    if (active) {
+      // Next animation frame so the initial-hidden style has painted.
+      const id = window.requestAnimationFrame(() => setVisible(true))
+      return () => window.cancelAnimationFrame(id)
+    } else {
+      setVisible(false)
+    }
+  }, [active])
+
   function onPanelEnter() {
-    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
+    cancelClose()
   }
   function onPanelLeave() {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current)
-    closeTimer.current = window.setTimeout(() => close(), HOVER_CLOSE_MS)
+    scheduleClose()
   }
 
   if (!active) return null
@@ -72,10 +80,13 @@ export function PreviewPanel() {
       ref={panelRef}
       onMouseEnter={onPanelEnter}
       onMouseLeave={onPanelLeave}
-      role="dialog"
+      role="region"
       aria-label="Citation preview"
-      className="absolute right-0 top-0 bottom-0 w-full sm:w-[320px] bg-ivory border-l border-border-warm shadow-lg z-10 flex flex-col"
-      style={{ transition: 'transform 180ms ease, opacity 180ms ease' }}
+      className="absolute right-0 top-0 bottom-0 w-full sm:w-[320px] bg-ivory border-l border-border-warm shadow-lg z-10 flex flex-col transition-transform transition-opacity duration-[180ms] ease-out"
+      style={{
+        transform: visible ? 'translateX(0)' : 'translateX(16px)',
+        opacity: visible ? 1 : 0,
+      }}
     >
       <div className="px-3 py-2 border-b border-border-cream flex items-center justify-between">
         <div className="text-xs font-sans text-stone-gray uppercase tracking-wide">
@@ -90,10 +101,10 @@ export function PreviewPanel() {
       <div className="flex-1 overflow-y-auto p-3 text-xs font-mono leading-relaxed">
         {error && <div className="text-red-700">{error}</div>}
         {!error && content === null && <div className="text-stone-gray">Loading…</div>}
-        {!error && content !== null && rendered.length === 0 && (
+        {!error && content !== null && !rendered.some(r => r.inRange) && (
           <div className="text-stone-gray">Range extends beyond page.</div>
         )}
-        {!error && content !== null && rendered.map(r => (
+        {!error && content !== null && rendered.some(r => r.inRange) && rendered.map(r => (
           <div
             key={r.n}
             className={r.inRange ? 'bg-[#fff7d9] -mx-3 px-3' : ''}
