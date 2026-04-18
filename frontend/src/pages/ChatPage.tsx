@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { ChatMessage } from '../components/ChatMessage'
 import { ChatInput } from '../components/ChatInput'
 import { ErrorBanner } from '../components/ErrorBanner'
+import { PreviewPanel } from '../components/PreviewPanel'
 import { useChat } from '../hooks/useChat'
 
 export function ChatPage() {
@@ -13,7 +14,7 @@ export function ChatPage() {
   }, [messages])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border-cream">
         <h1 className="font-serif text-lg sm:text-xl font-medium text-near-black leading-tight">
           Ask the knowledge base
@@ -42,6 +43,7 @@ export function ChatPage() {
       <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-border-cream bg-ivory pb-safe">
         <ChatInput onSend={sendMessage} disabled={streaming} />
       </div>
+      <PreviewPanel />
     </div>
   )
 }
