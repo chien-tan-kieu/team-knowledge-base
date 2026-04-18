@@ -6,7 +6,7 @@ import { PreviewPanel } from '../components/PreviewPanel'
 import { useChat } from '../hooks/useChat'
 
 export function ChatPage() {
-  const { messages, streaming, sendMessage, stop, error, editLast } = useChat()
+  const { messages, streaming, sendMessage, stop, error, editLast, newChat } = useChat()
   const lastUserIdx = messages.findLastIndex(m => m.role === 'user')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -16,11 +16,20 @@ export function ChatPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border-cream">
-        <h1 className="font-serif text-lg sm:text-xl font-medium text-near-black leading-tight">
-          Ask the knowledge base
-        </h1>
-        <p className="text-xs text-stone-gray font-sans mt-0.5">Powered by LLM Wiki</p>
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-border-cream flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-lg sm:text-xl font-medium text-near-black leading-tight">
+            Ask the knowledge base
+          </h1>
+          <p className="text-xs text-stone-gray font-sans mt-0.5">Powered by LLM Wiki</p>
+        </div>
+        <button
+          onClick={newChat}
+          disabled={streaming || messages.length === 0}
+          className="text-xs font-sans text-stone-gray hover:text-near-black px-2 py-1 rounded border border-border-cream disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          New chat
+        </button>
       </div>
 
       <div className="relative flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-5">
