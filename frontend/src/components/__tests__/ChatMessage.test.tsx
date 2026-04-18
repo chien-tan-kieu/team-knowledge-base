@@ -8,7 +8,7 @@ const userMsg: ChatMessageType = {
 }
 
 const assistantMsg: ChatMessageType = {
-  id: '2', role: 'assistant', content: 'Run `make deploy`.', citations: ['deploy-process']
+  id: '2', role: 'assistant', content: 'Run `make deploy`.', citations: [{ slug: 'deploy-process', start: 1, end: 5 }]
 }
 
 describe('ChatMessage', () => {
@@ -24,11 +24,11 @@ describe('ChatMessage', () => {
 
   it('renders citation tags for assistant messages', () => {
     render(<ChatMessage message={assistantMsg} />)
-    expect(screen.getByText('deploy-process')).toBeInTheDocument()
+    expect(screen.getByText('deploy-process:1-5')).toBeInTheDocument()
   })
 
   it('does not render citations for user messages', () => {
     render(<ChatMessage message={userMsg} />)
-    expect(screen.queryByText('deploy-process')).not.toBeInTheDocument()
+    expect(screen.queryByText('deploy-process:1-5')).not.toBeInTheDocument()
   })
 })

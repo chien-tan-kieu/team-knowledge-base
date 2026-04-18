@@ -30,7 +30,7 @@ describe('useChat', () => {
 
   it('adds user message and streams assistant response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      makeSSEResponse(['Hello ', 'world', '__CITATIONS__:deploy-process'])
+      makeSSEResponse(['Hello ', 'world', '__CITATIONS__:deploy-process:1-5'])
     ))
 
     const { result } = renderHook(() => useChat())
@@ -44,7 +44,9 @@ describe('useChat', () => {
     expect(result.current.messages[0].content).toBe('How do I deploy?')
     expect(result.current.messages[1].role).toBe('assistant')
     expect(result.current.messages[1].content).toContain('Hello world')
-    expect(result.current.messages[1].citations).toContain('deploy-process')
+    expect(result.current.messages[1].citations).toContainEqual({
+      slug: 'deploy-process', start: 1, end: 5,
+    })
   })
 })
 

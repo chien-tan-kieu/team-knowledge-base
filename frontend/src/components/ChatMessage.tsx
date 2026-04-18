@@ -40,12 +40,12 @@ export function ChatMessage({ message }: Props) {
 
         {message.citations.length > 0 && (
           <div className="mt-2 pt-2 border-t border-border-cream flex flex-wrap gap-1">
-            {message.citations.map(slug => (
+            {message.citations.map(c => (
               <span
-                key={slug}
+                key={`${c.slug}:${c.start}-${c.end}`}
                 className="inline-block bg-parchment border border-border-warm rounded text-stone-gray text-xs px-1.5 py-0.5"
               >
-                {slug}
+                {c.slug}:{c.start === c.end ? c.start : `${c.start}-${c.end}`}
               </span>
             ))}
           </div>

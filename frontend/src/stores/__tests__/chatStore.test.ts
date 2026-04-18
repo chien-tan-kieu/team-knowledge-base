@@ -34,29 +34,31 @@ describe('useChatStore.send', () => {
     expect(messages[1].content).toBe('Hello world.')
   })
 
-  it('parses citations when the marker arrives as one frame', async () => {
+  it('parses a single ranged citation when the marker arrives as one frame', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      makeSSEResponse(['Hello world.', '__CITATIONS__:deploy-process'])
+      makeSSEResponse(['Hello world.', '__CITATIONS__:deploy-process:1-5'])
     ))
 
     await useChatStore.getState().send('q')
 
     const assistant = useChatStore.getState().messages[1]
     expect(assistant.content).toBe('Hello world.')
-    expect(assistant.citations).toEqual(['deploy-process'])
+    expect(assistant.citations).toEqual([{ slug: 'deploy-process', start: 1, end: 5 }])
   })
 
-  it('parses citations even when the marker is split across frames', async () => {
-    // This is the bug: the old per-frame includes() check would miss this split.
+  it('parses ranged citations even when the marker is split across frames', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
-      makeSSEResponse(['Answer.', '__', 'CIT', 'ATIONS', '__', ':deploy', '-process', ',ci-cd'])
+      makeSSEResponse(['Answer.', '__', 'CIT', 'ATIONS', '__', ':deploy', '-process:15-22', ',ci-cd:30'])
     ))
 
     await useChatStore.getState().send('q')
 
     const assistant = useChatStore.getState().messages[1]
     expect(assistant.content).toBe('Answer.')
-    expect(assistant.citations).toEqual(['deploy-process', 'ci-cd'])
+    expect(assistant.citations).toEqual([
+      { slug: 'deploy-process', start: 15, end: 22 },
+      { slug: 'ci-cd', start: 30, end: 30 },
+    ])
   })
 
   it('sends prior turns on a follow-up send', async () => {
@@ -74,5 +76,31 @@ describe('useChatStore.send', () => {
     ])
     expect(body2.messages[0].content).toBe('Q1')
     expect(body2.messages[2].content).toBe('Q2')
+  })
+})
+
+describe('useChatStore citation parsing', () => {
+  it('parses slug:start-end entries', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeSSEResponse(['Answer.', '__CITATIONS__:deploy-process:15-22,ci-cd:30'])
+    ))
+    await useChatStore.getState().send('q')
+    const assistant = useChatStore.getState().messages[1]
+    expect(assistant.citations).toEqual([
+      { slug: 'deploy-process', start: 15, end: 22 },
+      { slug: 'ci-cd', start: 30, end: 30 },
+    ])
+  })
+
+  it('skips malformed citation entries', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      makeSSEResponse(['Answer.', '__CITATIONS__:deploy-process:15-22,garbage,ci-cd:30'])
+    ))
+    await useChatStore.getState().send('q')
+    const assistant = useChatStore.getState().messages[1]
+    expect(assistant.citations).toEqual([
+      { slug: 'deploy-process', start: 15, end: 22 },
+      { slug: 'ci-cd', start: 30, end: 30 },
+    ])
   })
 })
