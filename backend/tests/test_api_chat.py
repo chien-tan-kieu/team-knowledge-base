@@ -85,16 +85,23 @@ async def _mock_query_cancelled(messages):
     raise asyncio.CancelledError()
 
 
-def test_chat_does_not_log_error_on_client_cancellation(client, caplog):
+def test_chat_does_not_log_error_on_client_cancellation(client, caplog, mocker):
     tc, _ = client
+    from kb.api import chat as chat_module
+
+    exception_spy = mocker.spy(chat_module.logger, "exception")
+
     with caplog.at_level(logging.ERROR, logger="kb.api.chat"):
         with patch("kb.api.chat.QueryAgent") as MockAgent:
             MockAgent.return_value.query = _mock_query_cancelled
             with tc.stream("POST", "/api/chat", json={"messages": [
                 {"role": "user", "content": "hi"}
             ]}) as resp:
-                # Drain at least one byte, then close.
-                for _ in resp.iter_bytes():
-                    break
-    # Endpoint must not log CancelledError as an error.
+                body = b"".join(resp.iter_bytes()).decode("utf-8")
+
+    # Endpoint must not log CancelledError as an error via logger.exception.
+    assert exception_spy.call_count == 0
+    # And must not log the generic "chat.stream_failed" line.
     assert not any("chat.stream_failed" in r.message for r in caplog.records)
+    # And must not yield the generic "Stream failed" error-event payload.
+    assert "Stream failed" not in body
