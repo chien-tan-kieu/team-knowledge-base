@@ -58,6 +58,7 @@ interface ChatState {
   streaming: boolean
   error: ApiError | null
   send: (content: string) => Promise<void>
+  stop: () => void
   clearError: () => void
 }
 
@@ -66,6 +67,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   error: null,
   clearError: () => set({ error: null }),
+  stop: () => {
+    abortRef.current?.abort()
+  },
 
   send: async (content: string) => {
     if (get().streaming) return

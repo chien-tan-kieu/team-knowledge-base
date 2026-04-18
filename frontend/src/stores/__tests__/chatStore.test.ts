@@ -104,3 +104,35 @@ describe('useChatStore citation parsing', () => {
     ])
   })
 })
+
+describe('useChatStore.stop', () => {
+  it('aborts the in-flight stream and preserves partial text', async () => {
+    // Infinite stream that never completes on its own.
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+        controller.enqueue(new TextEncoder().encode('data: Partial\r\n\r\n'))
+        // Don't close — simulates an ongoing answer.
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, init) => {
+      const signal = (init as RequestInit).signal
+      // Simulate real fetch: aborting errors the response body stream.
+      signal?.addEventListener('abort', () => {
+        streamController?.error(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      })
+      return Promise.resolve({ ok: true, body: stream.pipeThrough(new TransformStream()) } as unknown as Response)
+    }))
+
+    const sendPromise = useChatStore.getState().send('hi')
+    // Let the first frame flush into state.
+    await new Promise(r => setTimeout(r, 20))
+    useChatStore.getState().stop()
+    await sendPromise
+
+    const { messages, streaming } = useChatStore.getState()
+    expect(streaming).toBe(false)
+    expect(messages[messages.length - 1].content).toContain('Partial')
+  })
+})
