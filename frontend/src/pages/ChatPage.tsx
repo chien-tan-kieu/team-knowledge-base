@@ -24,6 +24,7 @@ export function ChatPage() {
           <p className="text-xs text-stone-gray font-sans mt-0.5">Powered by LLM Wiki</p>
         </div>
         <button
+          type="button"
           onClick={newChat}
           disabled={streaming || messages.length === 0}
           className="text-xs font-sans text-stone-gray hover:text-near-black px-2 py-1 rounded border border-border-cream disabled:opacity-40 disabled:cursor-not-allowed"
