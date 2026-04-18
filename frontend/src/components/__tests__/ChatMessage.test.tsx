@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect } from 'vitest'
 import { ChatMessage } from '../ChatMessage'
@@ -31,5 +31,19 @@ describe('ChatMessage', () => {
   it('does not render citations for user messages', () => {
     render(<MemoryRouter><ChatMessage message={userMsg} /></MemoryRouter>)
     expect(screen.queryByText('deploy-process:1-5')).not.toBeInTheDocument()
+  })
+
+  it('enters edit mode when the last user bubble is clicked', () => {
+    const msg: ChatMessageType = { id: '1', role: 'user', content: 'hi', citations: [] }
+    render(<MemoryRouter><ChatMessage message={msg} editable onEditSave={() => {}} /></MemoryRouter>)
+    fireEvent.click(screen.getByText('hi'))
+    expect(screen.getByRole('textbox')).toHaveValue('hi')
+  })
+
+  it('does not enter edit mode when not editable', () => {
+    const msg: ChatMessageType = { id: '1', role: 'user', content: 'hi', citations: [] }
+    render(<MemoryRouter><ChatMessage message={msg} /></MemoryRouter>)
+    fireEvent.click(screen.getByText('hi'))
+    expect(screen.queryByRole('textbox')).toBeNull()
   })
 })

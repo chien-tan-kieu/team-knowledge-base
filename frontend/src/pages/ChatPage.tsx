@@ -6,7 +6,8 @@ import { PreviewPanel } from '../components/PreviewPanel'
 import { useChat } from '../hooks/useChat'
 
 export function ChatPage() {
-  const { messages, streaming, sendMessage, stop, error } = useChat()
+  const { messages, streaming, sendMessage, stop, error, editLast } = useChat()
+  const lastUserIdx = messages.findLastIndex(m => m.role === 'user')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -30,8 +31,13 @@ export function ChatPage() {
             </p>
           </div>
         )}
-        {messages.map(msg => (
-          <ChatMessage key={msg.id} message={msg} />
+        {messages.map((msg, idx) => (
+          <ChatMessage
+            key={msg.id}
+            message={msg}
+            editable={!streaming && idx === lastUserIdx}
+            onEditSave={editLast}
+          />
         ))}
         {error && <ErrorBanner error={error} />}
         <div ref={bottomRef} />
