@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
+import { WikiDrawer } from './components/WikiDrawer'
 import { SessionGate } from './components/SessionGate'
 import { ChatPage } from './pages/ChatPage'
 import { WikiPage } from './pages/WikiPage'
@@ -8,6 +9,17 @@ import { IngestPage } from './pages/IngestPage'
 
 export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [wikiDrawerOpen, setWikiDrawerOpen] = useState(false)
+
+  function handleNavigate() {
+    setDrawerOpen(false)
+    setWikiDrawerOpen(false)
+  }
+
+  function handleWikiToggle() {
+    setDrawerOpen(false)
+    setWikiDrawerOpen(o => !o)
+  }
 
   return (
     <SessionGate>
@@ -17,7 +29,10 @@ export function App() {
             type="button"
             aria-label="Open navigation"
             className="md:hidden -ml-2 p-2 rounded-md text-olive-gray hover:bg-border-cream active:bg-warm-sand"
-            onClick={() => setDrawerOpen(true)}
+            onClick={() => {
+              setDrawerOpen(true)
+              setWikiDrawerOpen(false)
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -36,7 +51,13 @@ export function App() {
             }`}
             onClick={() => setDrawerOpen(false)}
           />
-          <Sidebar open={drawerOpen} onNavigate={() => setDrawerOpen(false)} />
+          <Sidebar
+            open={drawerOpen}
+            onNavigate={handleNavigate}
+            onWikiToggle={handleWikiToggle}
+            wikiDrawerOpen={wikiDrawerOpen}
+          />
+          <WikiDrawer open={wikiDrawerOpen} onClose={() => setWikiDrawerOpen(false)} />
           <main className="flex-1 overflow-hidden">
             <Routes>
               <Route path="/" element={<ChatPage />} />

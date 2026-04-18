@@ -28,7 +28,15 @@ export function ChatMessage({ message }: Props) {
             : 'bg-ivory border border-border-cream text-near-black rounded-tl-sm'
         }`}
       >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {!isUser && message.content === '' ? (
+          <div className="flex items-center gap-1 py-1" aria-label="Assistant is typing">
+            <span className="w-1.5 h-1.5 rounded-full bg-stone-gray animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-stone-gray animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-stone-gray animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        )}
 
         {message.citations.length > 0 && (
           <div className="mt-2 pt-2 border-t border-border-cream flex flex-wrap gap-1">
