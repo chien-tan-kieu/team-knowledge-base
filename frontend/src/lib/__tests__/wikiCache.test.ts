@@ -32,4 +32,15 @@ describe('wikiCache', () => {
     expect(b).toBe('c')
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('allows retry after a failed fetch', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, headers: { get: () => null }, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ slug: 'x', content: 'recovered' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getWikiContent('x')).rejects.toBeDefined()
+    await expect(getWikiContent('x')).resolves.toBe('recovered')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })

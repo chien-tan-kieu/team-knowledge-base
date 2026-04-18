@@ -8,12 +8,14 @@ export async function getWikiContent(slug: string): Promise<string> {
   if (cached !== undefined) return cached
   const pending = inflight.get(slug)
   if (pending) return pending
-  const p = (async () => {
-    const page = await getWikiPage(slug)
-    cache.set(slug, page.content)
-    inflight.delete(slug)
-    return page.content
-  })()
+  const p = getWikiPage(slug)
+    .then(page => {
+      cache.set(slug, page.content)
+      return page.content
+    })
+    .finally(() => {
+      inflight.delete(slug)
+    })
   inflight.set(slug, p)
   return p
 }
