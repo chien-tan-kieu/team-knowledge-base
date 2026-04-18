@@ -28,7 +28,7 @@ def test_chat_returns_sse_stream(client):
         MockAgent.return_value.query = _mock_query
         response = tc.post(
             "/api/chat",
-            json={"question": "How do I deploy?"},
+            json={"messages": [{"role": "user", "content": "How do I deploy?"}]},
             headers={"Accept": "text/event-stream"},
         )
     assert response.status_code == 200
@@ -36,9 +36,26 @@ def test_chat_returns_sse_stream(client):
     assert "answer" in response.text
 
 
-def test_chat_rejects_empty_question(client):
+def test_chat_rejects_empty_messages(client):
     tc, _ = client
-    response = tc.post("/api/chat", json={"question": ""})
+    response = tc.post("/api/chat", json={"messages": []})
+    assert response.status_code == 422
+
+
+def test_chat_rejects_blank_content(client):
+    tc, _ = client
+    response = tc.post("/api/chat", json={"messages": [
+        {"role": "user", "content": "   "},
+    ]})
+    assert response.status_code == 422
+
+
+def test_chat_rejects_non_user_last_turn(client):
+    tc, _ = client
+    response = tc.post("/api/chat", json={"messages": [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]})
     assert response.status_code == 422
 
 
@@ -51,7 +68,7 @@ def test_chat_emits_terminal_error_event_on_stream_failure(client):
     tc, _ = client
     with patch("kb.api.chat.QueryAgent") as MockAgent:
         MockAgent.return_value.query = _mock_query_raises
-        with tc.stream("POST", "/api/chat", json={"question": "why?"}) as resp:
+        with tc.stream("POST", "/api/chat", json={"messages": [{"role": "user", "content": "why?"}]}) as resp:
             assert resp.status_code == 200
             body = b"".join(resp.iter_bytes()).decode("utf-8")
 
