@@ -126,3 +126,44 @@ async def test_phase1_uses_last_n_turns(knowledge_dir):
     assert "latest" in phase1_prompt
     # Earlier turns should be absent
     assert "q0" not in phase1_prompt
+
+
+@pytest.mark.asyncio
+async def test_phase2_pages_are_line_numbered(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    fs.write_page("deploy-process", "Line one\nLine two\nLine three")
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="claude-sonnet-4-6")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "1: Line one" in phase2_system
+    assert "2: Line two" in phase2_system
+    assert "3: Line three" in phase2_system
+
+
+@pytest.mark.asyncio
+async def test_phase2_prompt_requests_ranged_citations(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    fs.write_page("deploy-process", "x")
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="claude-sonnet-4-6")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "__CITATIONS__:" in phase2_system
+    assert "slug:line_start-line_end" in phase2_system or "slug-one:15-22" in phase2_system
