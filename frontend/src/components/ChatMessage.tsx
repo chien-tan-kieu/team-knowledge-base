@@ -1,4 +1,5 @@
 import type { ChatMessage as ChatMessageType } from '../lib/types'
+import { ReferenceChip } from './ReferenceChip'
 
 interface Props {
   message: ChatMessageType
@@ -39,15 +40,13 @@ export function ChatMessage({ message }: Props) {
         )}
 
         {message.citations.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-border-cream flex flex-wrap gap-1">
-            {message.citations.map(c => (
-              <span
-                key={`${c.slug}:${c.start}-${c.end}`}
-                className="inline-block bg-parchment border border-border-warm rounded text-stone-gray text-xs px-1.5 py-0.5"
-              >
-                {c.slug}:{c.start === c.end ? c.start : `${c.start}-${c.end}`}
-              </span>
-            ))}
+          <div className="mt-2 pt-2 border-t border-border-cream">
+            <div className="text-xs text-stone-gray font-sans mb-1">References</div>
+            <div className="flex flex-wrap gap-1">
+              {message.citations.map((c, i) => (
+                <ReferenceChip key={`${c.slug}:${c.start}-${c.end}:${i}`} citation={c} />
+              ))}
+            </div>
           </div>
         )}
       </div>
