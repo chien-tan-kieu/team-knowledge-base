@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ["http://localhost:5173"]
     cookie_secure: bool = False                        # flip on in prod (HTTPS)
 
-    # Compile prompt sizing — cap pages included as context to keep prompt bounded.
-    compile_max_context_pages: int = 10
+    # Minimum ratio of compile output chars (summary + details) to raw input chars.
+    # Below this we assume the LLM over-summarized and fail the ingest.
+    compile_min_coverage: float = 0.2
 
     # Observability
     log_level: str = "INFO"

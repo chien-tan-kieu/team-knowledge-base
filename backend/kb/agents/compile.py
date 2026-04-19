@@ -1,114 +1,72 @@
 import logging
+import re
+from datetime import date
+
 import litellm
+
+from kb.agents.compile_schema import (
+    CompileOutput,
+    render_index_md,
+    render_log_entry,
+    render_page_md,
+)
 from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
 logger = logging.getLogger(__name__)
 
 
-COMPILE_PROMPT = """You are a knowledge base compiler. You receive a raw markdown document and the current wiki state, and you produce structured wiki pages.
+COMPILE_PROMPT = """You compile a raw markdown document into structured wiki pages.
 
-REQUIRED PAGE TEMPLATE — every page you emit MUST follow this exact structure, with all five sections in this order:
+Produce one `WikiPageOutput` per distinct concept, entity, process, comparison, or framework found in the raw document. Split aggressively — do not fold multiple concepts into one page.
 
-# <Page Title>
+DO NOT summarize. Every fact, section, code example, table, and list in the raw document must appear in the `details` field of some page. Prefer preserving source wording. If the source is long, emit more pages, not shorter pages.
 
-**Slug:** <slug matching the === PAGE: marker>
-**Related:** [[other-slug]], [[another-slug]]
-**Last updated:** YYYY-MM-DD
+Slug rules: lowercase, hyphen-separated, no extension, no path. Must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
 
-## Summary
+Use the `related` field to cross-link pages you emit together (and to existing pages if the raw document relates to them).
 
-One paragraph summary.
+EXISTING PAGES (slug — summary), for slug consistency and cross-linking only:
+{existing_index}
 
-## Details
-
-Full content. Use ## and ### subheadings, lists, tables, and code blocks inside Details as needed.
-
-## References
-
-- Source: `raw/<filename>`
-
-WORKED EXAMPLE of a single page (between the markers):
-
-=== PAGE: claude-code-cli ===
-# Claude Code CLI
-
-**Slug:** claude-code-cli
-**Related:** [[claude-chat]], [[claude-cowork]]
-**Last updated:** 2026-04-19
-
-## Summary
-
-Terminal-native Claude interface for engineers needing deep system integration.
-
-## Details
-
-### Interface
-Terminal REPL with full local file system access.
-
-### Capabilities
-Hooks, MCP, custom subagents, headless automation.
-
-## References
-
-- Source: `raw/claude-modes-research.md`
-
-RULES:
-- Slugs: lowercase-hyphen, NO `.md` extension, no path separators.
-- Do NOT summarize the raw document. Every concept, process, entity, and code example must appear in the pages you emit. Split into as many pages as needed (one distinct concept per page, ≤500 words each).
-- Emit exactly one `=== INDEX ===` block. The index is NEVER emitted as a page.
-- EXISTING PAGES below are shown so you can avoid duplicating content and keep slug naming consistent. Do NOT mimic their formatting — always follow the REQUIRED PAGE TEMPLATE above, even if existing pages don't.
-
-SCHEMA REFERENCE:
-{schema}
-
-CURRENT INDEX:
-{index}
-
-EXISTING PAGES (reference only — do not mimic formatting):
-{existing_pages}
-
-RAW DOCUMENT TO COMPILE (filename: {filename}):
+RAW DOCUMENT (filename: {filename}):
 {raw_content}
-
-Produce output in EXACTLY this format — no extra text before or after:
-
-=== PAGE: slug-name ===
-(content following the REQUIRED PAGE TEMPLATE — every page MUST include all five sections)
-
-=== PAGE: another-slug ===
-(content for another page — include ALL pages that need creating or updating)
-
-=== INDEX ===
-(the complete updated index.md content)
-
-=== LOG_ENTRY ===
-## [YYYY-MM-DD] ingest | Document Title
-Pages touched: slug-one, slug-two
 """
 
 
+INDEX_BULLET_RE = re.compile(r"^\s*-\s+\[\[([a-z0-9-]+)\]\]\s*—\s*(.*)$")
+
+
+def _parse_index(index_md: str) -> dict[str, str]:
+    """Extract slug → summary mapping from the wiki index bullet list."""
+    out: dict[str, str] = {}
+    for line in index_md.splitlines():
+        m = INDEX_BULLET_RE.match(line)
+        if m:
+            out[m.group(1)] = m.group(2).strip()
+    return out
+
+
 class CompileAgent:
-    def __init__(self, fs: WikiFS, model: str, max_context_pages: int = 10) -> None:
+    def __init__(
+        self,
+        fs: WikiFS,
+        model: str,
+        min_coverage: float = 0.2,
+    ) -> None:
         self._fs = fs
         self._model = model
-        self._max_context_pages = max_context_pages
+        self._min_coverage = min_coverage
 
     async def compile(self, filename: str, raw_content: str) -> None:
-        schema = self._fs.read_schema()
-        index = self._fs.read_index()
-
-        existing_pages = ""
-        # Cap context to the most recent N pages so the prompt stays bounded as
-        # the wiki grows. The full index is still included above.
-        for slug in self._fs.list_pages()[-self._max_context_pages :]:
-            page = self._fs.read_page(slug)
-            existing_pages += f"\n--- EXISTING PAGE (reference only, do not mimic formatting): {slug} ---\n{page.content}\n"
+        existing_summaries = _parse_index(self._fs.read_index())
+        existing_index = (
+            "\n".join(f"- {slug} — {summary}" for slug, summary in sorted(existing_summaries.items()))
+            or "(none yet)"
+        )
 
         prompt = COMPILE_PROMPT.format(
-            schema=schema,
-            index=index,
-            existing_pages=existing_pages or "(none yet)",
+            existing_index=existing_index,
             filename=filename,
             raw_content=raw_content,
         )
@@ -117,31 +75,60 @@ class CompileAgent:
             response = await litellm.acompletion(
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "compile_output",
+                        "strict": True,
+                        "schema": CompileOutput.model_json_schema(),
+                    },
+                },
             )
         except Exception as exc:
             logger.error("llm.compile_failed")
-            raise LLMUpstreamError() from exc
+            raise LLMUpstreamError("LLM request failed (network or upstream).") from exc
 
-        output = response.choices[0].message.content
-        self._parse_and_write(output)
+        raw_output = response.choices[0].message.content
+        try:
+            output = CompileOutput.model_validate_json(raw_output)
+        except Exception as exc:
+            logger.error("compile.schema_validation_failed")
+            raise LLMUpstreamError(
+                "LLM output did not match the expected schema."
+            ) from exc
 
-    def _parse_and_write(self, output: str) -> None:
-        parts = output.split("===")
-        i = 0
-        while i < len(parts):
-            part = parts[i].strip()
-            if part.startswith("PAGE:"):
-                slug = part.removeprefix("PAGE:").strip()
-                content = parts[i + 1].strip() if i + 1 < len(parts) else ""
-                self._fs.write_page(slug, content)
-                i += 2
-            elif part == "INDEX":
-                content = parts[i + 1].strip() if i + 1 < len(parts) else ""
-                self._fs.write_index(content)
-                i += 2
-            elif part == "LOG_ENTRY":
-                content = parts[i + 1].strip() if i + 1 < len(parts) else ""
-                self._fs.append_log(content)
-                i += 2
-            else:
-                i += 1
+        self._assert_coverage(output, raw_content)
+        self._write(output, filename, existing_summaries)
+
+    def _assert_coverage(self, output: CompileOutput, raw_content: str) -> None:
+        content_chars = sum(len(p.details) + len(p.summary) for p in output.pages)
+        raw_chars = len(raw_content)
+        if raw_chars == 0:
+            return
+        ratio = content_chars / raw_chars
+        if ratio < self._min_coverage:
+            logger.error(
+                "compile.coverage_too_low",
+                extra={"ratio": ratio, "threshold": self._min_coverage},
+            )
+            raise LLMUpstreamError(
+                f"LLM output covered {ratio:.1%} of source "
+                f"(< {self._min_coverage:.0%} required); model likely over-summarized."
+            )
+
+    def _write(
+        self,
+        output: CompileOutput,
+        filename: str,
+        existing_summaries: dict[str, str],
+    ) -> None:
+        today = date.today()
+
+        for page in output.pages:
+            self._fs.write_page(page.slug, render_page_md(page, filename, today))
+
+        merged = {**existing_summaries, **{p.slug: p.summary for p in output.pages}}
+        self._fs.write_index(render_index_md(merged))
+
+        slugs = [p.slug for p in output.pages]
+        self._fs.append_log(render_log_entry(filename, slugs, today))

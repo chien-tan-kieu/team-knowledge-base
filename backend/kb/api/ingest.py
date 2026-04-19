@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from kb.agents.compile import CompileAgent
 from kb.api.deps import get_job_store, get_wiki_fs
+from kb.errors import LLMUpstreamError
 from kb.jobs.store import InMemoryJobStore
 from kb.wiki.fs import WikiFS
 from kb.wiki.models import JobStatus
@@ -29,11 +30,20 @@ async def _run_compile(
         agent = CompileAgent(
             fs=fs,
             model=settings.llm_model,
-            max_context_pages=settings.compile_max_context_pages,
+            min_coverage=settings.compile_min_coverage,
         )
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)
+    except LLMUpstreamError as exc:
+        # LLMUpstreamError carries a sanitized, user-facing message — forward it
+        # so the user sees which gate failed (network, schema, coverage).
+        logger.exception(
+            "ingest.compile_failed",
+            extra={"job_id": job_id, "ingest_filename": filename},
+        )
+        store.update_job(job_id, status=JobStatus.FAILED, error=exc.message)
     except Exception:
+        # Unknown errors may carry sensitive details — keep the generic message.
         logger.exception(
             "ingest.compile_failed",
             extra={"job_id": job_id, "ingest_filename": filename},
