@@ -1,5 +1,3 @@
 # Ingest Log
 
-Append-only record of all ingest, query, and lint operations.
-Format: `## [YYYY-MM-DD] operation | title`
-
+This file is maintained by the CompileAgent. Do not edit manually.
