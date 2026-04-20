@@ -4,7 +4,13 @@ from kb.wiki.models import WikiPage, IngestJob, JobStatus, ChatRequest, ChatTurn
 
 
 def test_wiki_page_slug_from_filename():
-    page = WikiPage(slug="database-migrations", content="# Database Migrations\n\nContent here.")
+    content = "---\nslug: database-migrations\n---\n# Database Migrations\n\nContent here."
+    page = WikiPage(
+        slug="database-migrations",
+        content=content,
+        frontmatter={"slug": "database-migrations"},
+        body="# Database Migrations\n\nContent here."
+    )
     assert page.slug == "database-migrations"
     assert "Database Migrations" in page.content
 

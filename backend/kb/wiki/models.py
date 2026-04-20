@@ -13,6 +13,8 @@ class JobStatus(StrEnum):
 class WikiPage(BaseModel):
     slug: str
     content: str
+    frontmatter: dict
+    body: str
 
 
 class IngestJob(BaseModel):
