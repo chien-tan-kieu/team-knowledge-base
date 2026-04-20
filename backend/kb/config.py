@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Below this we assume the LLM over-summarized and fail the ingest.
     compile_min_coverage: float = 0.7
 
+    # Set false to skip the verbatim code-block/table check (useful with weaker models).
+    compile_require_verbatim: bool = True
+
     # Observability
     log_level: str = "INFO"
     expose_api_docs: bool = True                       # /docs, /redoc, /openapi.json

@@ -31,6 +31,7 @@ async def _run_compile(
             fs=fs,
             model=settings.llm_model,
             min_coverage=settings.compile_min_coverage,
+            require_verbatim=settings.compile_require_verbatim,
         )
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)

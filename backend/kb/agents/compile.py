@@ -53,6 +53,31 @@ TABLE_RE = re.compile(
 
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
 
+OLLAMA_MODEL_PREFIXES = ("ollama/", "ollama_chat/")
+
+
+def _structured_output_kwargs(model: str, schema: dict) -> dict:
+    """Provider-appropriate kwargs for JSON-Schema-constrained output.
+
+    Ollama (via LiteLLM) doesn't reliably honor `response_format=json_schema`;
+    instead, pass the schema through Ollama's native `format` parameter
+    (extra_body), which reaches llama.cpp's grammar-constrained decoder.
+    Frontier providers (OpenAI, Anthropic, Gemini) use the standard
+    OpenAI-style `response_format`.
+    """
+    if model.startswith(OLLAMA_MODEL_PREFIXES):
+        return {"extra_body": {"format": schema}}
+    return {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "compile_output",
+                "strict": True,
+                "schema": schema,
+            },
+        }
+    }
+
 
 def _parse_index(index_md: str) -> dict[str, str]:
     out: dict[str, str] = {}
@@ -102,10 +127,12 @@ class CompileAgent:
         fs: WikiFS,
         model: str,
         min_coverage: float = 0.7,
+        require_verbatim: bool = True,
     ) -> None:
         self._fs = fs
         self._model = model
         self._min_coverage = min_coverage
+        self._require_verbatim = require_verbatim
 
     async def compile(self, filename: str, raw_content: str) -> None:
         existing_summaries = _parse_index(self._fs.read_index())
@@ -128,14 +155,9 @@ class CompileAgent:
             response = await litellm.acompletion(
                 model=self._model,
                 messages=[{"role": "user", "content": prompt}],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "compile_output",
-                        "strict": True,
-                        "schema": CompileOutput.model_json_schema(),
-                    },
-                },
+                **_structured_output_kwargs(
+                    self._model, CompileOutput.model_json_schema()
+                ),
             )
         except Exception as exc:
             logger.error("llm.compile_failed")
@@ -152,7 +174,8 @@ class CompileAgent:
                 "LLM output did not match the expected schema."
             ) from exc
 
-        self._assert_verbatim(output, raw_content)
+        if self._require_verbatim:
+            self._assert_verbatim(output, raw_content)
         self._assert_coverage(output, raw_content)
         self._write(output, filename, existing_summaries)
 

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from kb.agents.compile import CompileAgent
+from kb.agents.compile import CompileAgent, _structured_output_kwargs
 from kb.errors import LLMUpstreamError
 from kb.wiki.frontmatter import dump as dump_frontmatter, parse as parse_frontmatter
 from kb.wiki.fs import WikiFS
@@ -526,3 +526,66 @@ async def test_compile_wraps_litellm_errors(knowledge_dir):
     ):
         with pytest.raises(LLMUpstreamError):
             await agent.compile("file.md", "raw")
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["ollama/gemma3:4b", "ollama_chat/qwen2.5:7b", "ollama/llama3.2"],
+)
+def test_structured_output_kwargs_uses_format_extra_body_for_ollama(model):
+    schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+    kwargs = _structured_output_kwargs(model, schema)
+    assert kwargs == {"extra_body": {"format": schema}}
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["claude-sonnet-4-6", "claude-haiku-4-5-20251001", "gpt-4o-mini", "gemini/gemini-2.0-flash"],
+)
+def test_structured_output_kwargs_uses_response_format_for_frontier(model):
+    schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+    kwargs = _structured_output_kwargs(model, schema)
+    assert kwargs == {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "compile_output",
+                "strict": True,
+                "schema": schema,
+            },
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_compile_passes_format_extra_body_for_ollama_model(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    mock_completion = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
+    with patch("litellm.acompletion", new=mock_completion):
+        agent = CompileAgent(
+            fs=fs, model="ollama_chat/gemma3:4b", min_coverage=0.0
+        )
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    call_kwargs = mock_completion.call_args.kwargs
+    assert "response_format" not in call_kwargs
+    assert "extra_body" in call_kwargs
+    assert "format" in call_kwargs["extra_body"]
+    # The schema is the Pydantic-generated one for CompileOutput.
+    assert call_kwargs["extra_body"]["format"]["type"] == "object"
+
+
+@pytest.mark.asyncio
+async def test_compile_passes_response_format_for_frontier_model(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    mock_completion = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
+    with patch("litellm.acompletion", new=mock_completion):
+        agent = CompileAgent(
+            fs=fs, model="claude-sonnet-4-6", min_coverage=0.0
+        )
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    call_kwargs = mock_completion.call_args.kwargs
+    assert "extra_body" not in call_kwargs
+    assert call_kwargs["response_format"]["type"] == "json_schema"
+    assert call_kwargs["response_format"]["json_schema"]["strict"] is True
