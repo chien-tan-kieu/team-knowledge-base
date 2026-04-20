@@ -38,7 +38,7 @@ const components = {
 
 export function WikiPageViewer({ content }: Props) {
   return (
-    <div className="prose md:prose-sm max-w-none font-sans text-near-black leading-relaxed prose-pre:overflow-x-auto prose-pre:whitespace-pre prose-code:break-words">
+    <div className="prose-wiki">
       <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
   )

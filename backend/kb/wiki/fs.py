@@ -1,5 +1,6 @@
 from pathlib import Path
 from kb.wiki.models import WikiPage
+from kb.wiki.frontmatter import parse as parse_frontmatter
 
 
 class WikiFS:
@@ -22,7 +23,9 @@ class WikiFS:
         path = self._pages / f"{slug}.md"
         if not path.exists():
             raise FileNotFoundError(f"Wiki page not found: {slug}")
-        return WikiPage(slug=slug, content=path.read_text(encoding="utf-8"))
+        content = path.read_text(encoding="utf-8")
+        frontmatter, body = parse_frontmatter(content)
+        return WikiPage(slug=slug, content=content, frontmatter=frontmatter, body=body)
 
     def write_page(self, slug: str, content: str) -> None:
         (self._pages / f"{slug}.md").write_text(content, encoding="utf-8")

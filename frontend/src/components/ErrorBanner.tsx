@@ -10,19 +10,41 @@ export function ErrorBanner({ error, onRetry }: Props) {
   return (
     <div
       role="alert"
-      className="bg-warm-sand border border-border-cream text-near-black rounded-md px-4 py-3 font-sans text-sm flex items-start gap-3"
+      className="rounded-xl px-4 py-3 font-sans text-sm flex items-start gap-3 bg-sand text-fg"
+      style={{ boxShadow: 'var(--shadow-ring)' }}
     >
-      <div className="flex-1">
-        <p className="font-medium">{error.message}</p>
+      <span
+        aria-hidden
+        className="flex-shrink-0 w-5 h-5 grid place-items-center rounded-full mt-0.5"
+        style={{
+          background: 'rgba(181,51,51,0.12)',
+          color: 'var(--color-error-crimson)',
+        }}
+      >
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" d="M12 8v5M12 17h.01" />
+          <circle cx="12" cy="12" r="9" />
+        </svg>
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-fg">{error.message}</p>
         {error.requestId && (
-          <p className="text-xs text-stone-gray mt-1">Reference: {error.requestId}</p>
+          <p className="text-xs text-fg-dim mt-0.5 font-mono">
+            Ref {error.requestId}
+          </p>
         )}
       </div>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="-my-1 px-2 py-1 text-xs font-medium text-olive-gray hover:text-near-black underline"
+          className="-my-1 px-2 py-1 text-xs font-medium text-fg-muted hover:text-fg underline underline-offset-[3px]"
         >
           Retry
         </button>
