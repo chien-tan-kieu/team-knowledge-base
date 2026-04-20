@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { ApiError, startChat, coerceApiError } from '../lib/api'
-import type { ChatMessage, ApiErrorBody } from '../lib/types'
+import type { ChatMessage, ApiErrorBody, Citation } from '../lib/types'
 
 const CITATIONS_MARKER = '__CITATIONS__:'
 
@@ -26,15 +26,27 @@ function parseSSEFrames(buffer: string): { frames: SSEFrame[]; rest: string } {
   return { frames, rest }
 }
 
-function splitCitations(raw: string): { content: string; citations: string[] } {
+const CITATION_ENTRY_RE = /^([\w-]+):(\d+)(?:-(\d+))?$/
+
+function parseCitationEntries(raw: string): Citation[] {
+  const out: Citation[] = []
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+    const match = CITATION_ENTRY_RE.exec(trimmed)
+    if (!match) continue
+    const start = parseInt(match[2], 10)
+    const end = match[3] ? parseInt(match[3], 10) : start
+    out.push({ slug: match[1], start, end })
+  }
+  return out
+}
+
+function splitCitations(raw: string): { content: string; citations: Citation[] } {
   const idx = raw.lastIndexOf(CITATIONS_MARKER)
   if (idx < 0) return { content: raw, citations: [] }
   const content = raw.slice(0, idx).replace(/\s+$/, '')
-  const citationsPart = raw.slice(idx + CITATIONS_MARKER.length)
-  const citations = citationsPart
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean)
+  const citations = parseCitationEntries(raw.slice(idx + CITATIONS_MARKER.length))
   return { content, citations }
 }
 
@@ -46,6 +58,9 @@ interface ChatState {
   streaming: boolean
   error: ApiError | null
   send: (content: string) => Promise<void>
+  stop: () => void
+  editLast: (newContent: string) => Promise<void>
+  newChat: () => void
   clearError: () => void
 }
 
@@ -54,6 +69,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   error: null,
   clearError: () => set({ error: null }),
+  stop: () => {
+    abortRef.current?.abort()
+  },
+
+  editLast: async (newContent: string) => {
+    if (get().streaming) return
+    const msgs = get().messages
+    // Find the last user message index.
+    let lastUserIdx = -1
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'user') { lastUserIdx = i; break }
+    }
+    if (lastUserIdx < 0) return
+    set({ messages: msgs.slice(0, lastUserIdx) })
+    await get().send(newContent)
+  },
+
+  newChat: () => {
+    if (get().streaming) abortRef.current?.abort()
+    set({ messages: [], streaming: false, error: null })
+  },
 
   send: async (content: string) => {
     if (get().streaming) return

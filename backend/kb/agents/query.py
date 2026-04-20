@@ -21,14 +21,20 @@ RECENT CONVERSATION:
 Respond with slugs only, e.g.: deploy-process, database-migrations"""
 
 
-ANSWER_SYSTEM_PROMPT = """You are a helpful knowledge base assistant. Answer using ONLY the wiki pages provided.
+ANSWER_SYSTEM_PROMPT = """You are a helpful knowledge base assistant. Answer using ONLY the wiki pages provided below.
+
+The pages are line-numbered. Use the line numbers to cite precisely.
 
 WIKI PAGES:
 {pages}
 
-At the very end of your response, on its own final line, append:
-__CITATIONS__:slug-one,slug-two
-listing all slugs you drew from."""
+When you finish your answer, on its own final line, append:
+__CITATIONS__:slug-one:15-22,slug-two:30-45
+
+Each entry is `slug:line_start-line_end` (inclusive, 1-indexed). Use a single line number like `:30` for one line. Cite ranges that directly back a claim in your answer. Prefer tight ranges (3-15 lines). Never invent line numbers — if you can't locate a supporting passage, omit that source.
+
+Example:
+__CITATIONS__:deploy-process:15-22,ci-cd:30"""
 
 
 def _format_history(messages: list[dict]) -> str:
@@ -37,6 +43,12 @@ def _format_history(messages: list[dict]) -> str:
         role = m["role"].upper()
         lines.append(f"{role}: {m['content']}")
     return "\n".join(lines)
+
+
+def _format_page_with_line_numbers(slug: str, content: str) -> str:
+    lines = content.split("\n")
+    numbered = "\n".join(f"{i + 1}: {line}" for i, line in enumerate(lines))
+    return f"\n--- {slug} ---\n{numbered}\n"
 
 
 class QueryAgent:
@@ -69,6 +81,7 @@ class QueryAgent:
         for slug in slugs:
             try:
                 page = self._fs.read_page(slug)
+                pages_content += _format_page_with_line_numbers(slug, page.body)
             except FileNotFoundError:
                 continue
             except ValueError as exc:
@@ -76,8 +89,6 @@ class QueryAgent:
                     "wiki.page_malformed", extra={"slug": slug, "error": str(exc)}
                 )
                 continue
-            title = page.frontmatter.get("title") or slug
-            pages_content += f"\n--- {slug}: {title} ---\n{page.body}\n"
 
         if not pages_content:
             yield "I couldn't find relevant information in the knowledge base."

@@ -394,3 +394,14 @@ body.is-dragging aside[aria-label="Primary"] {
 @utility pr-safe {
   padding-right: env(safe-area-inset-right);
 }
+
+.kb-highlight {
+  background-color: #fff7d9;
+  transition: background-color 600ms ease-out;
+  border-left: 2px solid #d4a05d;
+  margin-left: -12px;
+  padding-left: 10px;
+}
+.kb-highlight.kb-highlight-fading {
+  background-color: transparent;
+}
