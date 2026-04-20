@@ -82,11 +82,13 @@ def _strip_proposed_block(body: str, raw_filename: str) -> str:
     idx = body.find(header)
     if idx == -1:
         return body
-    # Find the next heading at any level (## through ######) after this block.
+    # Find the next same-or-higher-level heading (## or #) after this block.
+    # A ### or deeper after the proposed-updates H2 is a child of that block,
+    # not a sibling, so it must not terminate the strip range.
     after = body[idx + len(header):]
-    match = re.search(r"\n#{1,6} ", after)
+    match = re.search(r"\n#{1,2} ", after)
     if match is None:
-        # No later heading — cut to end.
+        # No later top-level/sibling heading — cut to end.
         trimmed = body[:idx]
     else:
         remainder_start = idx + len(header) + match.start()
@@ -246,6 +248,10 @@ class CompileAgent:
 
         existing_sources = [str(s) for s in existing_fm.get("sources", [])]
         merged_sources = _merge_unique(existing_sources, [filename])
+        existing_related = [str(r) for r in existing_fm.get("related", [])]
+        merged_related = _merge_unique(existing_related, list(page.related))
+        # Mutate the page model in-place so render_page_md picks up the merged related.
+        page = page.model_copy(update={"related": merged_related})
         self._fs.write_page(
             page.slug,
             render_page_md(

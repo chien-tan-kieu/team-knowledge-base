@@ -122,6 +122,48 @@ async def test_compile_overwrites_llm_page_and_merges_sources(knowledge_dir):
 
 
 @pytest.mark.asyncio
+async def test_compile_overwrites_llm_page_and_merges_related(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    prior = dump_frontmatter(
+        {
+            "slug": "onboarding-guide",
+            "title": "Onboarding Guide",
+            "summary": "Old summary.",
+            "related": ["legacy-link"],
+            "sources": ["older.md"],
+            "updated": date(2026, 4, 1),
+            "edited_by": "llm",
+        },
+        f"# Onboarding Guide\n\n{BODY_250}\n",
+    )
+    _page_path(knowledge_dir, "onboarding-guide").write_text(prior, encoding="utf-8")
+
+    payload = {
+        "pages": [
+            {
+                "slug": "onboarding-guide",
+                "title": "Onboarding Guide",
+                "summary": "New summary.",
+                "related": ["new-link"],  # LLM emits a different cross-link
+                "body": BODY_250,
+            }
+        ]
+    }
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(payload)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    fm, _ = parse_frontmatter(
+        _page_path(knowledge_dir, "onboarding-guide").read_text()
+    )
+    # Both prior and new cross-links survive, dedup, prior-first order.
+    assert fm["related"] == ["legacy-link", "new-link"]
+
+
+@pytest.mark.asyncio
 async def test_compile_appends_proposed_updates_on_human_page(knowledge_dir):
     fs = WikiFS(knowledge_dir)
     human_page = dump_frontmatter(
@@ -211,7 +253,7 @@ async def test_compile_proposed_block_preserves_following_subheading(knowledge_d
         "# Human Curated\n\nHand-written.\n\n"
         "## Proposed updates (from onboarding.md)\n\n"
         "Old proposal body.\n\n"
-        "### Personal notes\n\n"
+        "## Personal notes\n\n"
         "I want to keep this section.\n"
     )
     human_page = dump_frontmatter(
@@ -240,9 +282,57 @@ async def test_compile_proposed_block_preserves_following_subheading(knowledge_d
     _, body = parse_frontmatter(
         _page_path(knowledge_dir, "onboarding-guide").read_text()
     )
-    assert "### Personal notes" in body
+    assert "## Personal notes" in body
     assert "I want to keep this section." in body
-    # And the new proposed block is still there:
+    assert body.count("## Proposed updates (from onboarding.md)") == 1
+    assert BODY_250 in body
+
+
+@pytest.mark.asyncio
+async def test_compile_strips_stale_proposed_block_with_internal_subheading(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    body_with_internal_h3 = (
+        "# Human Curated\n\nHand-written.\n\n"
+        "## Proposed updates (from onboarding.md)\n\n"
+        "Old proposal preamble.\n\n"
+        "### Examples\n\n"
+        "Old example one.\n\n"
+        "### Notes\n\n"
+        "Old notes.\n"
+    )
+    human_page = dump_frontmatter(
+        {
+            "slug": "onboarding-guide",
+            "title": "Human Curated",
+            "summary": "Curated.",
+            "related": [],
+            "sources": ["onboarding.md"],
+            "updated": date(2026, 4, 5),
+            "edited_by": "human",
+        },
+        body_with_internal_h3,
+    )
+    _page_path(knowledge_dir, "onboarding-guide").write_text(
+        human_page, encoding="utf-8"
+    )
+
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    _, body = parse_frontmatter(
+        _page_path(knowledge_dir, "onboarding-guide").read_text()
+    )
+    # Stale internal subheadings must be gone — no leaks.
+    assert "Old proposal preamble." not in body
+    assert "Old example one." not in body
+    assert "Old notes." not in body
+    assert "### Examples" not in body
+    assert "### Notes" not in body
+    # The new proposed block is present.
     assert body.count("## Proposed updates (from onboarding.md)") == 1
     assert BODY_250 in body
 
@@ -367,6 +457,64 @@ async def test_compile_accepts_when_code_block_preserved(knowledge_dir):
     ):
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
         await agent.compile("hello.md", raw)
+
+
+@pytest.mark.asyncio
+async def test_compile_rejects_missing_table(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    raw = (
+        "Here is a critical table.\n\n"
+        "| col-a | col-b |\n"
+        "| --- | --- |\n"
+        "| one | two |\n"
+        "| three | four |\n\n"
+        "More prose.\n"
+    )
+    payload = {
+        "pages": [
+            {
+                "slug": "tabular",
+                "title": "Tabular",
+                "summary": "Has a table.",
+                "related": [],
+                "body": "A" * 400,
+            }
+        ]
+    }
+    with patch(
+        "litellm.acompletion", new=AsyncMock(return_value=_mock_response(payload))
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        with pytest.raises(LLMUpstreamError, match="code block|table"):
+            await agent.compile("tabular.md", raw)
+
+
+@pytest.mark.asyncio
+async def test_compile_accepts_when_table_preserved(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    table = (
+        "| col-a | col-b |\n"
+        "| --- | --- |\n"
+        "| one | two |\n"
+        "| three | four |\n"
+    )
+    raw = f"Intro.\n\n{table}\nOutro.\n"
+    payload = {
+        "pages": [
+            {
+                "slug": "tabular",
+                "title": "Tabular",
+                "summary": "Has a table.",
+                "related": [],
+                "body": f"A preamble.\n\n{table}\nMore body. " + ("z" * 300),
+            }
+        ]
+    }
+    with patch(
+        "litellm.acompletion", new=AsyncMock(return_value=_mock_response(payload))
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("tabular.md", raw)
 
 
 @pytest.mark.asyncio
