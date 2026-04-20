@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = ["http://localhost:5173"]
     cookie_secure: bool = False                        # flip on in prod (HTTPS)
 
-    # Minimum ratio of compile output chars (summary + details) to raw input chars.
+    # Minimum ratio of compile output chars (summary + body) to raw input chars.
     # Below this we assume the LLM over-summarized and fail the ingest.
-    compile_min_coverage: float = 0.2
+    compile_min_coverage: float = 0.7
 
     # Observability
     log_level: str = "INFO"
