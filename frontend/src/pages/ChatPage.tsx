@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import { ChatMessage } from "../components/ChatMessage";
 import { ChatInput } from "../components/ChatInput";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { PreviewPanel } from "../components/PreviewPanel";
 import { useChat } from "../hooks/useChat";
 
 const SUGGESTIONS: Array<{ tag: string; q: string }> = [
@@ -100,7 +101,8 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
 }
 
 export function ChatPage() {
-  const { messages, streaming, sendMessage, error } = useChat();
+  const { messages, streaming, sendMessage, stop, error, editLast, newChat } = useChat();
+  const lastUserIdx = messages.findLastIndex((m) => m.role === "user");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,11 +117,28 @@ export function ChatPage() {
         <div className="w-full max-w-[740px] mx-auto px-5 sm:px-8 pt-6">
           {!hasMessages && !error && <EmptyState onPick={sendMessage} />}
           {hasMessages && (
-            <div className="flex flex-col gap-9 pb-6">
-              {messages.map((msg) => (
-                <ChatMessage key={msg.id} message={msg} />
-              ))}
-            </div>
+            <>
+              <div className="flex justify-end mb-3">
+                <button
+                  type="button"
+                  onClick={newChat}
+                  disabled={streaming}
+                  className="text-[12px] font-sans text-fg-dim hover:text-fg px-2.5 py-1 rounded-md border border-line-strong bg-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  New chat
+                </button>
+              </div>
+              <div className="flex flex-col gap-9 pb-6">
+                {messages.map((msg, idx) => (
+                  <ChatMessage
+                    key={msg.id}
+                    message={msg}
+                    editable={!streaming && idx === lastUserIdx}
+                    onEditSave={editLast}
+                  />
+                ))}
+              </div>
+            </>
           )}
           {error && (
             <div className="mt-6">
@@ -135,6 +154,7 @@ export function ChatPage() {
               </p>
             )}
           <div ref={bottomRef} />
+          <PreviewPanel />
         </div>
       </div>
 
@@ -145,7 +165,7 @@ export function ChatPage() {
             "linear-gradient(180deg, transparent, var(--color-canvas) 30%)",
         }}
       >
-        <ChatInput onSend={sendMessage} disabled={streaming} />
+        <ChatInput onSend={sendMessage} streaming={streaming} onStop={stop} disabled={streaming} />
       </div>
     </div>
   );

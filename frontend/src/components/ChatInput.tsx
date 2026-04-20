@@ -2,10 +2,12 @@ import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
 interface Props {
   onSend: (message: string) => void;
+  onStop?: () => void;
+  streaming?: boolean;
   disabled?: boolean;
 }
 
-export function ChatInput({ onSend, disabled = false }: Props) {
+export function ChatInput({ onSend, onStop, streaming = false, disabled = false }: Props) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -18,7 +20,7 @@ export function ChatInput({ onSend, disabled = false }: Props) {
 
   function handleSend() {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || streaming) return;
     onSend(trimmed);
     setValue("");
   }
@@ -29,6 +31,8 @@ export function ChatInput({ onSend, disabled = false }: Props) {
       handleSend();
     }
   }
+
+  const showStop = streaming && !!onStop;
 
   return (
     <div
@@ -43,7 +47,7 @@ export function ChatInput({ onSend, disabled = false }: Props) {
           onKeyDown={handleKeyDown}
           placeholder="Ask anything about your team's knowledge…"
           rows={1}
-          disabled={disabled}
+          disabled={disabled || streaming}
           autoComplete="off"
           className="w-full resize-none bg-transparent border-0 outline-none text-[15px] leading-[1.5] text-fg placeholder:text-fg-dim font-sans tracking-[-0.003em] max-h-[180px] overflow-y-auto"
         />
@@ -100,28 +104,46 @@ export function ChatInput({ onSend, disabled = false }: Props) {
           </span>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={handleSend}
-        disabled={disabled || !value.trim()}
-        aria-label="Send message"
-        className="w-11 h-11 mr-0.5 my-0.5 rounded-xl bg-accent text-fg-onaccent grid place-items-center transition-[transform,background] duration-200 hover:scale-[1.04] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
-      >
-        <svg
-          className="w-[18px] h-[18px]"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
+      {showStop ? (
+        <button
+          type="button"
+          onClick={onStop}
+          aria-label="Stop"
+          className="w-11 h-11 mr-0.5 my-0.5 rounded-xl bg-fg text-fg-onaccent grid place-items-center transition-[transform,background] duration-200 hover:scale-[1.04]"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5 12h14M13 6l6 6-6 6"
-          />
-        </svg>
-      </button>
+          <svg
+            className="w-[14px] h-[14px]"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <rect x="6" y="6" width="12" height="12" rx="1.5" />
+          </svg>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={disabled || !value.trim()}
+          aria-label="Send message"
+          className="w-11 h-11 mr-0.5 my-0.5 rounded-xl bg-accent text-fg-onaccent grid place-items-center transition-[transform,background] duration-200 hover:scale-[1.04] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
+        >
+          <svg
+            className="w-[18px] h-[18px]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 12h14M13 6l6 6-6 6"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }

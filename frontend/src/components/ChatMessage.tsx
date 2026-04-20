@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChatMessage as ChatMessageType, Citation } from '../lib/types'
+import { MessageEditor } from './MessageEditor'
 
 interface Props {
   message: ChatMessageType
+  editable?: boolean
+  onEditSave?: (text: string) => void
 }
 
 function slugToTitle(slug: string) {
@@ -112,11 +116,17 @@ function SourceRow({ citation, index }: { citation: Citation; index: number }) {
   )
 }
 
-export function ChatMessage({ message }: Props) {
+export function ChatMessage({ message, editable, onEditSave }: Props) {
   const isUser = message.role === 'user'
   const isStreamingEmpty = !isUser && message.content === ''
+  const [editing, setEditing] = useState(false)
+  const canEdit = isUser && !!editable && !!onEditSave
+  // Derive effective editing from canEdit so revoked editability (e.g. a newer
+  // user message arrives) closes the editor without an extra effect/render.
+  const isEditing = editing && canEdit
 
   if (isUser) {
+    const interactive = canEdit && !isEditing
     return (
       <div className="flex flex-col items-end gap-2.5 animate-[fadeIn_0.4s_ease-out]">
         <div className="inline-flex flex-row-reverse items-center gap-2.5 text-[12px] text-fg-dim">
@@ -133,12 +143,37 @@ export function ChatMessage({ message }: Props) {
           </span>
           <span className="font-medium text-[12.5px] text-fg-muted">You</span>
         </div>
-        <div
-          className="max-w-[80%] px-4 py-[11px] rounded-[14px] rounded-br-[4px] bg-sand text-fg text-[14.5px] leading-relaxed whitespace-pre-wrap break-words"
-          style={{ boxShadow: 'var(--shadow-ring)' }}
-        >
-          {message.content}
-        </div>
+        {isEditing && onEditSave ? (
+          <div
+            className="max-w-[80%] px-4 py-[11px] rounded-[14px] rounded-br-[4px] bg-sand text-fg text-[14.5px] leading-relaxed"
+            style={{ boxShadow: 'var(--shadow-ring)' }}
+          >
+            <MessageEditor
+              initial={message.content}
+              onSave={text => { onEditSave(text); setEditing(false) }}
+              onCancel={() => setEditing(false)}
+            />
+          </div>
+        ) : (
+          <div
+            onClick={() => { if (interactive) setEditing(true) }}
+            onKeyDown={e => {
+              if (!interactive) return
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setEditing(true)
+              }
+            }}
+            role={interactive ? 'button' : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            className={`max-w-[80%] px-4 py-[11px] rounded-[14px] rounded-br-[4px] bg-sand text-fg text-[14.5px] leading-relaxed whitespace-pre-wrap break-words ${
+              interactive ? 'cursor-pointer hover:opacity-90' : ''
+            }`}
+            style={{ boxShadow: 'var(--shadow-ring)' }}
+          >
+            {message.content}
+          </div>
+        )}
       </div>
     )
   }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '../chatStore'
+import { ApiError } from '../../lib/api'
 
 function makeSSEResponse(frames: string[]) {
   const body = frames.map(f => `data: ${f}\r\n\r\n`).join('')
@@ -102,5 +103,103 @@ describe('useChatStore citation parsing', () => {
       { slug: 'deploy-process', start: 15, end: 22 },
       { slug: 'ci-cd', start: 30, end: 30 },
     ])
+  })
+})
+
+describe('useChatStore.stop', () => {
+  it('aborts the in-flight stream and preserves partial text', async () => {
+    // Infinite stream that never completes on its own.
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+        controller.enqueue(new TextEncoder().encode('data: Partial\r\n\r\n'))
+        // Don't close — simulates an ongoing answer.
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, init) => {
+      const signal = (init as RequestInit).signal
+      // Simulate real fetch: aborting errors the response body stream.
+      signal?.addEventListener('abort', () => {
+        streamController?.error(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      })
+      return Promise.resolve({ ok: true, body: stream.pipeThrough(new TransformStream()) } as unknown as Response)
+    }))
+
+    const sendPromise = useChatStore.getState().send('hi')
+    // Let the first frame flush into state.
+    await new Promise(r => setTimeout(r, 20))
+    useChatStore.getState().stop()
+    await sendPromise
+
+    const { messages, streaming } = useChatStore.getState()
+    expect(streaming).toBe(false)
+    expect(messages[messages.length - 1].content).toContain('Partial')
+  })
+})
+
+describe('useChatStore.editLast', () => {
+  it('truncates to before the last user message and re-sends', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(makeSSEResponse(['Old answer.']))
+      .mockResolvedValueOnce(makeSSEResponse(['New answer.']))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await useChatStore.getState().send('first question')
+    await useChatStore.getState().editLast('edited question')
+
+    const { messages } = useChatStore.getState()
+    // Should be exactly one user + one assistant pair after the edit.
+    expect(messages).toHaveLength(2)
+    expect(messages[0].content).toBe('edited question')
+    expect(messages[1].content).toBe('New answer.')
+  })
+
+  it('no-ops while streaming', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeSSEResponse(['Answer.'])))
+    const sendPromise = useChatStore.getState().send('q')
+    await useChatStore.getState().editLast('x')
+    await sendPromise
+    // Messages should reflect only the single send, not the edit.
+    const { messages } = useChatStore.getState()
+    expect(messages[0].content).toBe('q')
+  })
+})
+
+describe('useChatStore.newChat', () => {
+  it('resets messages and error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeSSEResponse(['Answer.'])))
+    await useChatStore.getState().send('q')
+    useChatStore.setState({ error: new ApiError({
+      code: 'x', message: 'y', requestId: null, status: 500,
+    }) })
+    useChatStore.getState().newChat()
+    const { messages, error, streaming } = useChatStore.getState()
+    expect(messages).toEqual([])
+    expect(error).toBeNull()
+    expect(streaming).toBe(false)
+  })
+
+  it('stops a streaming send before clearing', async () => {
+    let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller
+        controller.enqueue(new TextEncoder().encode('data: Partial\r\n\r\n'))
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((_url, init) => {
+      const signal = (init as RequestInit).signal
+      signal?.addEventListener('abort', () => {
+        streamController?.error(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      })
+      return Promise.resolve({ ok: true, body: stream.pipeThrough(new TransformStream()) } as unknown as Response)
+    }))
+
+    const sendPromise = useChatStore.getState().send('hi')
+    await new Promise(r => setTimeout(r, 10))
+    useChatStore.getState().newChat()
+    await sendPromise
+    expect(useChatStore.getState().messages).toEqual([])
   })
 })
