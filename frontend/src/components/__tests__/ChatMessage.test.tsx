@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { describe, it, expect } from 'vitest'
 import { ChatMessage } from '../ChatMessage'
 import type { ChatMessage as ChatMessageType } from '../../lib/types'
 
@@ -13,7 +13,7 @@ const userMsg: ChatMessageType = {
 }
 
 const assistantMsg: ChatMessageType = {
-  id: '2', role: 'assistant', content: 'Run `make deploy`.', citations: ['deploy-process']
+  id: '2', role: 'assistant', content: 'Run `make deploy`.', citations: [{ slug: 'deploy-process', start: 1, end: 5 }]
 }
 
 describe('ChatMessage', () => {
@@ -27,13 +27,14 @@ describe('ChatMessage', () => {
     expect(screen.getByText(/make deploy/)).toBeInTheDocument()
   })
 
-  it('renders citation tags for assistant messages', () => {
+  it('renders citation numbers and sources section for assistant messages', () => {
     renderInRouter(<ChatMessage message={assistantMsg} />)
+    expect(screen.getByText('Sources')).toBeInTheDocument()
     expect(screen.getByText('deploy-process')).toBeInTheDocument()
   })
 
   it('does not render citations for user messages', () => {
     renderInRouter(<ChatMessage message={userMsg} />)
-    expect(screen.queryByText('deploy-process')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sources')).not.toBeInTheDocument()
   })
 })

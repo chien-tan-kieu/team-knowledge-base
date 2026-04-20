@@ -12,11 +12,17 @@ export interface IngestJob {
   error: string | null
 }
 
+export interface Citation {
+  slug: string
+  start: number
+  end: number
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  citations: string[]  // wiki page slugs
+  citations: Citation[]
 }
 
 export interface LintResult {

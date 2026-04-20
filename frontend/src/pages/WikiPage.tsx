@@ -1,7 +1,9 @@
-import { useParams } from 'react-router-dom'
+import { useRef } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useWikiPage } from '../hooks/useWiki'
 import { WikiPageViewer } from '../components/WikiPageViewer'
 import { ErrorBanner } from '../components/ErrorBanner'
+import { useWikiHighlight } from '../hooks/useWikiHighlight'
 
 function slugToTitle(slug: string) {
   return slug
@@ -40,7 +42,12 @@ function EmptyState() {
 
 export function WikiPage() {
   const { slug } = useParams<{ slug?: string }>()
+  const [searchParams] = useSearchParams()
+  const linesParam = searchParams.get('lines')
   const { page, loading, error } = useWikiPage(slug ?? null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useWikiHighlight(contentRef, page ? linesParam : null)
 
   return (
     <div className="h-full overflow-y-auto pb-safe">
@@ -76,7 +83,11 @@ export function WikiPage() {
             <p className="text-fg-dim font-sans text-sm animate-pulse">Loading…</p>
           )}
           {error && <ErrorBanner error={error} />}
-          {page && !error && <WikiPageViewer content={page.content} />}
+          {page && !error && (
+            <div ref={contentRef}>
+              <WikiPageViewer content={page.content} />
+            </div>
+          )}
         </article>
 
         {/* Margin rail — hidden below 1100px */}

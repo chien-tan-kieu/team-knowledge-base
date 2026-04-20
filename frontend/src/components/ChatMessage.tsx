@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { ChatMessage as ChatMessageType } from '../lib/types'
+import type { ChatMessage as ChatMessageType, Citation } from '../lib/types'
 
 interface Props {
   message: ChatMessageType
@@ -12,13 +12,17 @@ function slugToTitle(slug: string) {
     .join(' ')
 }
 
-function CitationChip({ slug, index }: { slug: string; index: number }) {
-  const title = slugToTitle(slug)
+function CitationChip({ citation, index }: { citation: Citation; index: number }) {
+  const title = slugToTitle(citation.slug)
+  const lineRange = citation.start === citation.end
+    ? `line ${citation.start}`
+    : `lines ${citation.start}–${citation.end}`
+
   return (
     <span className="relative inline-block align-super group">
       <Link
-        to={`/wiki/${slug}`}
-        aria-label={`Source ${index}: ${slug}`}
+        to={`/wiki/${citation.slug}?lines=${citation.start}-${citation.end}`}
+        aria-label={`Source ${index}: ${citation.slug} (${lineRange})`}
         className="inline-block font-sans text-[10.5px] font-medium leading-none px-[5px] py-[1px] rounded-[4px] transition-all duration-150 tabular-nums no-underline"
         style={{
           background: 'rgba(201,100,66,0.12)',
@@ -37,7 +41,6 @@ function CitationChip({ slug, index }: { slug: string; index: number }) {
       >
         {index}
       </Link>
-      {/* Margin-note popover (desktop hover) */}
       <span
         role="tooltip"
         className="pointer-events-none group-hover:pointer-events-auto opacity-0 group-hover:opacity-100 hidden md:block absolute top-[-8px] left-[calc(100%+18px)] w-[280px] bg-elevated rounded-xl px-4 py-3 text-left transition-[opacity,transform] duration-200 ease-out translate-x-[-6px] group-hover:translate-x-0 z-20 font-sans text-[13px] leading-relaxed normal-case tracking-normal"
@@ -62,17 +65,22 @@ function CitationChip({ slug, index }: { slug: string; index: number }) {
           {title}
         </span>
         <span className="block text-[12px] text-fg-muted font-sans">
-          Tap to open this wiki page.
+          {lineRange}. Tap to open and jump.
         </span>
       </span>
     </span>
   )
 }
 
-function SourceRow({ slug, index }: { slug: string; index: number }) {
+function SourceRow({ citation, index }: { citation: Citation; index: number }) {
+  const title = slugToTitle(citation.slug)
+  const lineRange = citation.start === citation.end
+    ? `line ${citation.start}`
+    : `lines ${citation.start}–${citation.end}`
+
   return (
     <Link
-      to={`/wiki/${slug}`}
+      to={`/wiki/${citation.slug}?lines=${citation.start}-${citation.end}`}
       className="grid grid-cols-[22px_1fr_auto] items-center gap-3 px-3 py-2 rounded-[10px] bg-surface transition-[transform,box-shadow] duration-150 ease-out no-underline hover:translate-x-0.5"
       style={{ boxShadow: 'var(--shadow-ring)' }}
     >
@@ -87,13 +95,16 @@ function SourceRow({ slug, index }: { slug: string; index: number }) {
       </span>
       <span className="min-w-0 overflow-hidden">
         <span className="block font-mono text-[11.5px] text-fg-dim truncate">
-          {slug}
+          {citation.slug}
         </span>
         <span
           className="block font-serif text-[14px] font-medium text-fg truncate"
           style={{ fontVariationSettings: '"opsz" 14' }}
         >
-          {slugToTitle(slug)}
+          {title}
+        </span>
+        <span className="block text-xs text-fg-dim mt-0.5">
+          {lineRange}
         </span>
       </span>
       <span className="text-fg-dim text-[13px]" aria-hidden>→</span>
@@ -176,8 +187,8 @@ export function ChatMessage({ message }: Props) {
               {message.content}
               {message.citations.length > 0 && (
                 <span className="ml-1">
-                  {message.citations.map((slug, i) => (
-                    <CitationChip key={slug} slug={slug} index={i + 1} />
+                  {message.citations.map((citation, i) => (
+                    <CitationChip key={`${citation.slug}:${citation.start}-${citation.end}`} citation={citation} index={i + 1} />
                   ))}
                 </span>
               )}
@@ -196,8 +207,8 @@ export function ChatMessage({ message }: Props) {
             <span className="text-accent">{message.citations.length}</span>
           </div>
           <div className="flex flex-col gap-2">
-            {message.citations.map((slug, i) => (
-              <SourceRow key={slug} slug={slug} index={i + 1} />
+            {message.citations.map((citation, i) => (
+              <SourceRow key={`${citation.slug}:${citation.start}-${citation.end}`} citation={citation} index={i + 1} />
             ))}
           </div>
         </footer>
