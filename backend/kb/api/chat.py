@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
 
 from fastapi import APIRouter, Depends
-from pydantic import field_validator
+from pydantic import model_validator
 from sse_starlette.sse import EventSourceResponse
 
 from kb.agents.query import QueryAgent
@@ -18,12 +19,16 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 
 class ValidatedChatRequest(ChatRequest):
-    @field_validator("question")
-    @classmethod
-    def question_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("question must not be empty")
-        return v
+    @model_validator(mode="after")
+    def validate_shape(self):
+        if not self.messages:
+            raise ValueError("messages must not be empty")
+        if self.messages[-1].role != "user":
+            raise ValueError("last message must have role=user")
+        for m in self.messages:
+            if not m.content.strip():
+                raise ValueError("content must not be blank")
+        return self
 
 
 def _error_event(code: ErrorCode, message: str) -> dict:
@@ -44,8 +49,10 @@ async def chat(
 
     async def event_generator():
         try:
-            async for token in agent.query(request.question):
+            async for token in agent.query([m.model_dump() for m in request.messages]):
                 yield {"data": token}
+        except asyncio.CancelledError:
+            raise
         except LLMUpstreamError as exc:
             logger.warning("chat.stream_llm_error")
             yield _error_event(ErrorCode.UPSTREAM_LLM_ERROR, exc.message)

@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useChat } from '../useChat'
 import { ApiError } from '../../lib/api'
+import { useChatStore } from '../../stores/chatStore'
 
 function makeSSEResponse(lines: string[]) {
   const body = lines.map(l => `data: ${l}\n\n`).join('')
@@ -15,7 +16,10 @@ function makeSSEResponse(lines: string[]) {
   return { ok: true, body: stream.pipeThrough(new TransformStream()) } as unknown as Response
 }
 
-beforeEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  useChatStore.setState({ messages: [], streaming: false, error: null })
+  vi.restoreAllMocks()
+})
 
 describe('useChat', () => {
   it('starts with empty messages', () => {

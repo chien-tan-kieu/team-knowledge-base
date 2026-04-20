@@ -3,13 +3,17 @@ import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { WikiDrawer } from './components/WikiDrawer'
 import { SessionGate } from './components/SessionGate'
+import { AppHeader } from './components/AppHeader'
 import { ChatPage } from './pages/ChatPage'
 import { WikiPage } from './pages/WikiPage'
 import { IngestPage } from './pages/IngestPage'
+import { useResizableSidebar } from './hooks/useResizableSidebar'
 
 export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [wikiDrawerOpen, setWikiDrawerOpen] = useState(false)
+
+  const resize = useResizableSidebar()
 
   function handleNavigate() {
     setDrawerOpen(false)
@@ -23,42 +27,39 @@ export function App() {
 
   return (
     <SessionGate>
-      <div className="flex flex-col h-screen bg-parchment">
-        <header className="h-13 flex items-center gap-3 px-4 sm:px-6 border-b border-border-cream bg-parchment flex-shrink-0 pt-safe">
-          <button
-            type="button"
-            aria-label="Open navigation"
-            className="md:hidden -ml-2 p-2 rounded-md text-olive-gray hover:bg-border-cream active:bg-warm-sand"
-            onClick={() => {
-              setDrawerOpen(true)
-              setWikiDrawerOpen(false)
-            }}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <span className="font-serif text-base font-medium text-near-black">Knowledge Base</span>
-        </header>
+      <div className="relative z-[2] h-dvh flex flex-col">
+        <AppHeader
+          onMobileMenuOpen={() => {
+            setDrawerOpen(true)
+            setWikiDrawerOpen(false)
+          }}
+          sidebarCollapsed={resize.collapsed}
+          onSidebarToggle={resize.toggleCollapsed}
+        />
 
-        <div className="flex flex-1 overflow-hidden relative">
+        <div className="flex-1 min-h-0 flex relative">
+          {/* Mobile backdrop */}
           <button
             type="button"
             aria-label="Close navigation"
             tabIndex={drawerOpen ? 0 : -1}
-            className={`md:hidden fixed inset-0 z-30 bg-near-black/30 transition-opacity duration-200 ease-out ${
+            className={`md:hidden fixed inset-0 z-30 bg-near-black/40 backdrop-blur-sm transition-opacity duration-200 ease-out ${
               drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
             onClick={() => setDrawerOpen(false)}
           />
+
           <Sidebar
             open={drawerOpen}
             onNavigate={handleNavigate}
             onWikiToggle={handleWikiToggle}
             wikiDrawerOpen={wikiDrawerOpen}
+            resize={resize}
           />
+
           <WikiDrawer open={wikiDrawerOpen} onClose={() => setWikiDrawerOpen(false)} />
-          <main className="flex-1 overflow-hidden">
+
+          <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative bg-canvas">
             <Routes>
               <Route path="/" element={<ChatPage />} />
               <Route path="/wiki" element={<WikiPage />} />
@@ -66,6 +67,18 @@ export function App() {
               <Route path="/ingest" element={<IngestPage />} />
             </Routes>
           </main>
+
+          {/* Snap-to-collapse hint band — visible while dragging near the threshold */}
+          <div
+            aria-hidden
+            className={`hidden md:block fixed left-0 top-14 bottom-0 w-16 pointer-events-none z-[25] transition-opacity duration-150 ease-out ${
+              resize.snapHint ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(201,100,66,0.08), transparent)',
+            }}
+          />
         </div>
       </div>
     </SessionGate>

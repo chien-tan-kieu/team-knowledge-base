@@ -6,29 +6,37 @@ from kb.wiki.fs import WikiFS
 
 logger = logging.getLogger(__name__)
 
+SELECT_HISTORY_TURNS = 3
 
 SELECT_PROMPT = """You are a knowledge base search assistant.
 
-Given the index below and a user question, return ONLY the slugs of the most relevant wiki pages (comma-separated, max 5). No explanation.
+Given the index below and the recent conversation, return ONLY the slugs of the most relevant wiki pages (comma-separated, max 5). No explanation.
 
 INDEX:
 {index}
 
-QUESTION: {question}
+RECENT CONVERSATION:
+{history}
 
 Respond with slugs only, e.g.: deploy-process, database-migrations"""
 
 
-ANSWER_PROMPT = """You are a helpful knowledge base assistant. Answer the question using ONLY the wiki pages provided.
+ANSWER_SYSTEM_PROMPT = """You are a helpful knowledge base assistant. Answer using ONLY the wiki pages provided.
 
 WIKI PAGES:
 {pages}
 
-QUESTION: {question}
-
-Answer clearly and concisely. At the very end of your response, on its own line, append:
+At the very end of your response, on its own final line, append:
 __CITATIONS__:slug-one,slug-two
 listing all slugs you drew from."""
+
+
+def _format_history(messages: list[dict]) -> str:
+    lines = []
+    for m in messages:
+        role = m["role"].upper()
+        lines.append(f"{role}: {m['content']}")
+    return "\n".join(lines)
 
 
 class QueryAgent:
@@ -36,14 +44,18 @@ class QueryAgent:
         self._fs = fs
         self._model = model
 
-    async def query(self, question: str) -> AsyncIterator[str]:
+    async def query(self, messages: list[dict]) -> AsyncIterator[str]:
         index = self._fs.read_index()
+        recent = messages[-SELECT_HISTORY_TURNS:]
 
-        # Step 1: select relevant pages (non-streaming, fast)
+        # Phase 1: select relevant pages
         try:
             select_response = await litellm.acompletion(
                 model=self._model,
-                messages=[{"role": "user", "content": SELECT_PROMPT.format(index=index, question=question)}],
+                messages=[{
+                    "role": "user",
+                    "content": SELECT_PROMPT.format(index=index, history=_format_history(recent)),
+                }],
             )
         except Exception as exc:
             logger.error("llm.select_failed")
@@ -52,24 +64,36 @@ class QueryAgent:
         slugs_raw = select_response.choices[0].message.content.strip()
         slugs = [s.strip() for s in slugs_raw.split(",") if s.strip()]
 
-        # Step 2: read selected pages
+        # Phase 2: read selected pages (body + title only)
         pages_content = ""
         for slug in slugs:
             try:
                 page = self._fs.read_page(slug)
-                pages_content += f"\n--- {slug} ---\n{page.content}\n"
             except FileNotFoundError:
-                pass
+                continue
+            except ValueError as exc:
+                logger.warning(
+                    "wiki.page_malformed", extra={"slug": slug, "error": str(exc)}
+                )
+                continue
+            title = page.frontmatter.get("title") or slug
+            pages_content += f"\n--- {slug}: {title} ---\n{page.body}\n"
 
         if not pages_content:
             yield "I couldn't find relevant information in the knowledge base."
             return
 
-        # Step 3: stream the answer
+        system_message = {
+            "role": "system",
+            "content": ANSWER_SYSTEM_PROMPT.format(pages=pages_content),
+        }
+        chat_messages = [{"role": m["role"], "content": m["content"]} for m in messages]
+
+        # Phase 3: stream the answer
         try:
             stream = await litellm.acompletion(
                 model=self._model,
-                messages=[{"role": "user", "content": ANSWER_PROMPT.format(pages=pages_content, question=question)}],
+                messages=[system_message, *chat_messages],
                 stream=True,
             )
             async for chunk in stream:

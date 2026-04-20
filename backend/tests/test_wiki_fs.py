@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 from kb.wiki.fs import WikiFS
 
@@ -10,7 +11,10 @@ def test_read_index(knowledge_dir):
 
 def test_write_and_read_page(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("test-topic", "# Test Topic\n\nContent here.")
+    fs.write_page(
+        "test-topic",
+        "---\nslug: test-topic\ntitle: Test Topic\n---\n# Test Topic\n\nContent here.\n",
+    )
     page = fs.read_page("test-topic")
     assert page.slug == "test-topic"
     assert "Test Topic" in page.content
@@ -63,3 +67,33 @@ def test_read_schema(knowledge_dir):
     fs = WikiFS(knowledge_dir)
     content = fs.read_schema()
     assert "# Schema" in content
+
+
+def test_read_page_parses_frontmatter_and_body(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    (knowledge_dir / "wiki" / "pages" / "foo.md").write_text(
+        "---\n"
+        "slug: foo\n"
+        "title: Foo\n"
+        "---\n"
+        "# Foo\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    page = fs.read_page("foo")
+
+    assert page.slug == "foo"
+    assert page.frontmatter == {"slug": "foo", "title": "Foo"}
+    assert page.body == "# Foo\n\nBody.\n"
+    # Backwards-compat: full file still accessible.
+    assert page.content.startswith("---\n")
+
+
+def test_read_page_raises_on_missing_frontmatter(knowledge_dir):
+    fs = WikiFS(knowledge_dir)
+    (knowledge_dir / "wiki" / "pages" / "bar.md").write_text(
+        "# Bar\n\nNo frontmatter.\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="frontmatter"):
+        fs.read_page("bar")

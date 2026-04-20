@@ -1,4 +1,4 @@
-import type { WikiPage, IngestJob, LintResult, ApiErrorBody } from './types'
+import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
 
 export class ApiError extends Error {
   code: string
@@ -78,15 +78,20 @@ export async function runLint(): Promise<LintResult> {
 }
 
 /**
- * Opens an SSE stream for a chat question.
- * Returns the raw Response — caller handles the stream.
+ * Opens an SSE stream for a chat turn.
+ * Sends the full conversation so the backend has context for follow-ups.
+ * Accepts an optional AbortSignal — used by the Stop button in a later plan.
  */
-export async function startChat(question: string): Promise<Response> {
+export async function startChat(messages: ChatMessage[], signal?: AbortSignal): Promise<Response> {
+  const payload = {
+    messages: messages.map(m => ({ role: m.role, content: m.content })),
+  }
   const res = await fetch('/api/chat', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify(payload),
+    signal,
   })
   if (!res.ok) throw await toApiError(res)
   return res
