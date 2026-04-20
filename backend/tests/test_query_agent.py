@@ -21,7 +21,11 @@ def _make_streaming_mock(tokens: list[str]):
 @pytest.mark.asyncio
 async def test_query_streams_answer(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "# Deploy Process\n\nRun `make deploy` to ship.")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
+        "# Deploy Process\n\nRun `make deploy` to ship.\n",
+    )
     fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy the app.\n")
 
     # First call: page selection (non-streaming)
@@ -45,7 +49,11 @@ async def test_query_streams_answer(knowledge_dir):
 @pytest.mark.asyncio
 async def test_query_returns_citations(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "# Deploy Process\n\nRun `make deploy`.")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
+        "# Deploy Process\n\nRun `make deploy`.\n",
+    )
     fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
 
     select_response = MagicMock()
@@ -74,7 +82,11 @@ async def test_query_agent_wraps_litellm_errors(knowledge_dir):
 @pytest.mark.asyncio
 async def test_query_takes_messages_list(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "Run make deploy.")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
+        "Run make deploy.\n",
+    )
     fs.write_index("- [[deploy-process]]\n")
 
     select_response = MagicMock()
@@ -102,7 +114,10 @@ async def test_query_takes_messages_list(knowledge_dir):
 @pytest.mark.asyncio
 async def test_phase1_uses_last_n_turns(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "x")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
+    )
     fs.write_index("- [[deploy-process]]\n")
 
     select_response = MagicMock()

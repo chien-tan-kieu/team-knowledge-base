@@ -11,7 +11,11 @@ def client(knowledge_dir):
     app = create_app()
     fs = WikiFS(knowledge_dir)
     app.dependency_overrides[get_wiki_fs] = lambda: fs
-    fs.write_page("deploy-process", "# Deploy Process\n\nRun `make deploy`.")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
+        "# Deploy Process\n\nRun `make deploy`.\n",
+    )
     fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
     tc = TestClient(app)
     authenticate(tc)

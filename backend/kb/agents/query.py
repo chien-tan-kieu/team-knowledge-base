@@ -64,14 +64,20 @@ class QueryAgent:
         slugs_raw = select_response.choices[0].message.content.strip()
         slugs = [s.strip() for s in slugs_raw.split(",") if s.strip()]
 
-        # Phase 2: read selected pages
+        # Phase 2: read selected pages (body + title only)
         pages_content = ""
         for slug in slugs:
             try:
                 page = self._fs.read_page(slug)
-                pages_content += f"\n--- {slug} ---\n{page.content}\n"
             except FileNotFoundError:
-                pass
+                continue
+            except ValueError as exc:
+                logger.warning(
+                    "wiki.page_malformed", extra={"slug": slug, "error": str(exc)}
+                )
+                continue
+            title = page.frontmatter.get("title") or slug
+            pages_content += f"\n--- {slug}: {title} ---\n{page.body}\n"
 
         if not pages_content:
             yield "I couldn't find relevant information in the knowledge base."
