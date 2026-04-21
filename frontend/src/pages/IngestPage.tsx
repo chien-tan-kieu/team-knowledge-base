@@ -1,9 +1,8 @@
-import { IngestDropzone } from '../components/IngestDropzone'
-import { ErrorBanner } from '../components/ErrorBanner'
-import { useIngest } from '../hooks/useIngest'
+import { IngestDropzone } from "../components/IngestDropzone";
+import { useIngest } from "../hooks/useIngest";
 
 export function IngestPage() {
-  const { job, uploading, upload, error } = useIngest()
+  const { job, uploading, upload } = useIngest();
 
   return (
     <div className="h-full overflow-y-auto pb-safe">
@@ -13,7 +12,7 @@ export function IngestPage() {
             <span
               aria-hidden
               className="inline-block w-4 border-t"
-              style={{ borderColor: 'var(--color-fg-dim)' }}
+              style={{ borderColor: "var(--color-fg-dim)" }}
             />
             Ingest
           </span>
@@ -33,14 +32,8 @@ export function IngestPage() {
           </p>
         </header>
 
-        {error && (
-          <div className="mb-4">
-            <ErrorBanner error={error} />
-          </div>
-        )}
-
         <IngestDropzone onDrop={upload} job={job} uploading={uploading} />
       </div>
     </div>
-  )
+  );
 }

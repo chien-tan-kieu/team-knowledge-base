@@ -7,22 +7,18 @@ const CONTEXT_LINES = 3
 export function PreviewPanel() {
   const active = usePreviewStore(s => s.active)
   const close = usePreviewStore(s => s.closePreview)
-  const [content, setContent] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState<{ slug: string; content: string | null; error: string | null } | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
+  const content = active && loaded?.slug === active.slug ? loaded.content : null
+  const error = active && loaded?.slug === active.slug ? loaded.error : null
+
   useEffect(() => {
-    if (!active) {
-      setContent(null)
-      setError(null)
-      return
-    }
+    if (!active) return
     let cancelled = false
-    setContent(null)
-    setError(null)
     getWikiContent(active.slug)
-      .then(c => { if (!cancelled) setContent(c) })
-      .catch(() => { if (!cancelled) setError('Unable to load preview') })
+      .then(c => { if (!cancelled) setLoaded({ slug: active.slug, content: c, error: null }) })
+      .catch(() => { if (!cancelled) setLoaded({ slug: active.slug, content: null, error: 'Unable to load preview' }) })
     return () => { cancelled = true }
   }, [active])
 
