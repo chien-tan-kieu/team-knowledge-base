@@ -19,7 +19,7 @@ const HOVER_CLOSE_MS = 200
 const closeTimerRef: { current: number | null } = { current: null }
 
 export function scheduleClose(): void {
-  closeTimerRef.current && window.clearTimeout(closeTimerRef.current)
+  if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
   closeTimerRef.current = window.setTimeout(() => {
     usePreviewStore.getState().closePreview()
     closeTimerRef.current = null
@@ -27,6 +27,6 @@ export function scheduleClose(): void {
 }
 
 export function cancelClose(): void {
-  closeTimerRef.current && window.clearTimeout(closeTimerRef.current)
+  if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current)
   closeTimerRef.current = null
 }

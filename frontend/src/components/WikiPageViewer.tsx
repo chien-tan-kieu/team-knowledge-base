@@ -1,4 +1,5 @@
-import ReactMarkdown from 'react-markdown'
+import { createElement, type ComponentPropsWithoutRef } from 'react'
+import ReactMarkdown, { type ExtraProps } from 'react-markdown'
 
 interface Props {
   content: string
@@ -6,17 +7,14 @@ interface Props {
 
 type Tag = 'p' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'ul' | 'ol' | 'li' | 'pre' | 'blockquote' | 'table'
 
-function withLines(tag: Tag) {
-  return function Component(props: any) {
+function withLines<T extends Tag>(tag: T) {
+  return function Component(props: ComponentPropsWithoutRef<T> & ExtraProps) {
     const { node, ...rest } = props
-    const Tag = tag as any
-    return (
-      <Tag
-        data-source-line-start={node?.position?.start?.line}
-        data-source-line-end={node?.position?.end?.line}
-        {...rest}
-      />
-    )
+    return createElement(tag, {
+      ...rest,
+      'data-source-line-start': node?.position?.start?.line,
+      'data-source-line-end': node?.position?.end?.line,
+    })
   }
 }
 
