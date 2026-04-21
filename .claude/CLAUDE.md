@@ -1,29 +1,15 @@
-# Karpathy-Inspired Claude Code Guidelines
+# Project Constitution
 
-A single `CLAUDE.md` file to improve Claude Code behavior, derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
+This document is the operating constitution for AI assistants working in this repository. It defines the principles for _how_ to make changes (the Karpathy's Inspired Four Principles) and the project-specific rules that sit on top of them. Both sections are non-negotiable — when a tool, instruction, or instinct conflicts with what's written here, the constitution wins.
 
-## The Problems
+## The Four Principles
 
-From Andrej's post:
-
-> "The models make wrong assumptions on your behalf and just run along with them without checking. They don't manage their confusion, don't seek clarifications, don't surface inconsistencies, don't present tradeoffs, don't push back when they should."
-
-> "They really like to overcomplicate code and APIs, bloat abstractions, don't clean up dead code... implement a bloated construction over 1000 lines when 100 would do."
-
-> "They still sometimes change/remove comments and code they don't sufficiently understand as side effects, even if orthogonal to the task."
-
-## The Solution
-
-Four principles in one file that directly address these issues:
-
-| Principle                 | Addresses                                                 |
-| ------------------------- | --------------------------------------------------------- |
-| **Think Before Coding**   | Wrong assumptions, hidden confusion, missing tradeoffs    |
-| **Simplicity First**      | Overcomplication, bloated abstractions                    |
-| **Surgical Changes**      | Orthogonal edits, touching code you shouldn't             |
-| **Goal-Driven Execution** | Leverage through tests-first, verifiable success criteria |
-
-## The Four Principles in Detail
+| Principle                 | Addresses                                              |
+| ------------------------- | ------------------------------------------------------ |
+| **Think Before Coding**   | Wrong assumptions, hidden confusion, missing tradeoffs |
+| **Simplicity First**      | Overcomplication, bloated abstractions                 |
+| **Surgical Changes**      | Orthogonal edits, touching code you shouldn't          |
+| **Goal-Driven Execution** | Tests-first, verifiable success criteria               |
 
 ### 1. Think Before Coding
 
@@ -90,47 +76,6 @@ For multi-step tasks, state a brief plan:
 
 Strong success criteria let the LLM loop independently. Weak criteria ("make it work") require constant clarification.
 
-## Install
-
-**Option A: Claude Code Plugin (recommended)**
-
-From within Claude Code, first add the marketplace:
-
-```
-/plugin marketplace add forrestchang/andrej-karpathy-skills
-```
-
-Then install the plugin:
-
-```
-/plugin install andrej-karpathy-skills@karpathy-skills
-```
-
-This installs the guidelines as a Claude Code plugin, making the skill available across all your projects.
-
-**Option B: CLAUDE.md (per-project)**
-
-New project:
-
-```bash
-curl -o CLAUDE.md https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md
-```
-
-Existing project (append):
-
-```bash
-echo "" >> CLAUDE.md
-curl https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md >> CLAUDE.md
-```
-
-## Key Insight
-
-From Andrej:
-
-> "LLMs are exceptionally good at looping until they meet specific goals... Don't tell it what to do, give it success criteria and watch it go."
-
-The "Goal-Driven Execution" principle captures this: transform imperative instructions into declarative goals with verification loops.
-
 ## How to Know It's Working
 
 These guidelines are working if you see:
@@ -140,22 +85,90 @@ These guidelines are working if you see:
 - **Clarifying questions come before implementation** — Not after mistakes
 - **Clean, minimal PRs** — No drive-by refactoring or "improvements"
 
-## Customization
-
-These guidelines are designed to be merged with project-specific instructions. Add them to your existing `CLAUDE.md` or create a new one.
-
-For project-specific rules, add sections like:
-
-```markdown
-## Project-Specific Guidelines
-
-- Use TypeScript strict mode
-- All API endpoints must have tests
-- Follow the existing error handling patterns in `src/utils/errors.ts`
-```
-
 ## Tradeoff Note
 
 These guidelines bias toward **caution over speed**. For trivial tasks (simple typo fixes, obvious one-liners), use judgment — not every change needs the full rigor.
 
 The goal is reducing costly mistakes on non-trivial work, not slowing down simple tasks.
+
+## Project-Specific Rules
+
+These repo-specific rules extend the Karpathy principles above. Apply them
+whenever working in this codebase.
+
+### Test-Driven Development is mandatory
+
+Before writing implementation code for any new feature or bug fix:
+
+1. Write a failing test that captures the behavior or reproduces the bug.
+2. Run it and confirm it fails for the expected reason.
+3. Write the minimum code to make it pass.
+4. Run the full relevant test suite and confirm green.
+
+This applies whether or not the work is going through a `superpowers:*`
+skill. The `superpowers:test-driven-development` skill enforces this when
+invoked; this rule is the guardrail for everything else, including direct
+edits, quick fixes, and one-off scripts that touch behavior.
+
+**Narrow exceptions** (do not expand without asking):
+
+- Pure config edits with no behavior change (e.g., this file, dependency
+  bumps that don't change runtime semantics)
+- One-line typo fixes in comments or docs
+- Read-only investigation
+
+**Why:** TDD prevents "I think this works" delusions and forces the
+behavior contract to be made explicit _before_ the implementation
+crystallizes around an unstated assumption.
+
+### Verification before "done"
+
+Don't claim a task complete without running the relevant checks:
+
+- **Backend changes** (anything under `backend/kb/` or `backend/tests/`):
+  run `.venv/bin/pytest` from `backend/` and confirm green.
+- **Frontend changes** (anything under `frontend/src/`):
+  run `pnpm lint` and `pnpm test` from `frontend/` and confirm both green.
+- If a run fails, fix it or explicitly surface the failure — do not report
+  success with failing checks.
+
+**Why:** "Looks right" is not evidence. Type checks and tests are.
+
+### Consult the source of truth before visual or schema changes
+
+- Before any visual change (Tailwind classes, palette, typography, motion):
+  read `DESIGN.md` at repo root. Don't infer the design language from
+  existing components.
+- Before any change to wiki page structure, frontmatter, or section
+  conventions: read `backend/knowledge/schema/SCHEMA.md`. The compile
+  agent's output contract depends on it.
+
+**Why:** Both docs encode non-obvious conventions. Inferring from existing
+pages causes drift.
+
+### `docs/superpowers/` is historical, not a backlog
+
+Specs and plans under `docs/superpowers/specs/` and `docs/superpowers/plans/`
+are **records of past implementation decisions**, not active tickets:
+
+- Do not open them and implement what they describe unless the user
+  explicitly asks.
+- Do not treat "TODO" / "pending" language inside them as current work.
+
+Current work comes from the user in this session.
+
+### Never commit, push, or open PRs without an explicit request
+
+Even when work feels complete, do **not** run `git commit`, `git push`,
+`git merge`, `gh pr create`, `gh pr merge`, or any branch-mutating command
+without the user asking for it in _this_ session.
+
+- Prior sessions' commit permission does not carry over.
+- When commit-worthy work is done, _suggest_ it and wait.
+
+**Why:** Commits and PRs are shared state — visible to collaborators and
+harder to undo than a local file change.
+
+---
+
+_The Four Principles are adapted from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on common LLM coding pitfalls._
