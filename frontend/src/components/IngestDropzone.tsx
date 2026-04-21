@@ -189,9 +189,22 @@ export function IngestDropzone({ onDrop, job, uploading }: Props) {
               return (
                 <li key={s.key} className="flex flex-col gap-1.5 min-w-0">
                   <span
-                    className="h-[3px] rounded-full transition-[background,opacity] duration-500"
+                    className="relative h-[3px] rounded-full overflow-hidden transition-[background,opacity] duration-500"
                     style={{ background: color, opacity: reached ? 1 : 0.5 }}
-                  />
+                  >
+                    {active && !failed && (
+                      <span
+                        data-shimmer="true"
+                        aria-hidden
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)',
+                          animation: 'ingest-shimmer 2.8s ease-in-out infinite',
+                        }}
+                      />
+                    )}
+                  </span>
                   <span
                     className="text-[10.5px] font-medium uppercase tracking-[0.14em]"
                     style={{
