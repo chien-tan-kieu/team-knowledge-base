@@ -1,4 +1,3 @@
-import pytest
 from kb.agents.lint import LintAgent
 from kb.wiki.fs import WikiFS
 
