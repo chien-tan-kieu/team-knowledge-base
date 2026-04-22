@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from kb.agents.query import QueryAgent, SELECT_HISTORY_TURNS
+from kb.agents.query import QueryAgent
 from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
@@ -146,7 +146,11 @@ async def test_phase1_uses_last_n_turns(knowledge_dir):
 @pytest.mark.asyncio
 async def test_phase2_pages_are_line_numbered(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "Line one\nLine two\nLine three")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
+        "Line one\nLine two\nLine three",
+    )
     fs.write_index("- [[deploy-process]]\n")
 
     select_response = MagicMock()
@@ -167,7 +171,10 @@ async def test_phase2_pages_are_line_numbered(knowledge_dir):
 @pytest.mark.asyncio
 async def test_phase2_prompt_requests_ranged_citations(knowledge_dir):
     fs = WikiFS(knowledge_dir)
-    fs.write_page("deploy-process", "x")
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx",
+    )
     fs.write_index("- [[deploy-process]]\n")
 
     select_response = MagicMock()
