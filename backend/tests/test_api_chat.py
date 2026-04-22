@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs

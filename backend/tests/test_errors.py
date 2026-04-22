@@ -1,4 +1,15 @@
-from kb.errors import ErrorCode, ErrorResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from pydantic import BaseModel
+
+from kb.errors import (
+    ErrorCode,
+    ErrorResponse,
+    LLMUpstreamError,
+    install_error_handlers,
+)
+from kb.logging import setup_logging
+from kb.middleware import RequestContextMiddleware
 
 
 def test_error_codes_are_screaming_snake_case():
@@ -23,17 +34,6 @@ def test_error_response_serialises_flat():
         "message": "Job not found.",
         "request_id": "01HN6YV8XTR9A1TQ2M3X7E1B4C",
     }
-
-
-from fastapi import FastAPI, HTTPException
-from fastapi.testclient import TestClient
-from kb.errors import (
-    LLMUpstreamError,
-    install_error_handlers,
-)
-from kb.middleware import RequestContextMiddleware
-from kb.logging import setup_logging
-from pydantic import BaseModel
 
 
 def _app() -> FastAPI:

@@ -1,4 +1,3 @@
-import time
 import pytest
 from kb.auth.jwt import encode_session_jwt, decode_session_jwt, SessionTokenError
 

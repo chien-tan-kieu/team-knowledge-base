@@ -3,7 +3,6 @@ os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
 
 import pytest
 from pathlib import Path
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 
