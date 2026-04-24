@@ -26,13 +26,18 @@ Each page has:
 - slug: lowercase, hyphen-separated, matches `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - title: human-readable.
 - summary: one paragraph synopsis (used as the index bullet).
-- related: slugs of cross-linked pages; empty list if none.
+- related: slugs of cross-linked pages; empty list if none. Each entry must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - body: free-form Markdown, at least 200 characters. Include whatever subheadings, lists, tables, and code blocks fit the concept.
 
 Your output will be validated before it is written:
 1. Every page body must be at least 200 characters.
 2. Every fenced code block and every Markdown table present in the raw document must appear verbatim inside the body of at least one page.
 3. The total length of all summaries and bodies combined must be at least {min_coverage:.0%} of the raw document length.
+
+Output format rules (body field of each page):
+- Use GitHub-Flavored Markdown only. Do not emit raw HTML block tags (<table>, <p>, <div>, <td>, <tr>, <thead>, <tbody>, <th>, <ul>, <ol>, <li>). Small inline HTML such as <br/>, <sub>, <sup>, <details> is allowed when useful.
+- Tables must use pipe syntax (| col | col |) with a --- separator row, not HTML.
+- Do not repeat the page title as a heading inside the body. The renderer already emits "# <title>" above the body; start the body with the first real subsection or paragraph.
 
 Rephrase prose where it helps clarity, but preserve numeric facts, named entities, code blocks, and tables verbatim. Do not invent information that is not in the raw document.
 
