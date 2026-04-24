@@ -589,3 +589,29 @@ async def test_compile_passes_response_format_for_frontier_model(knowledge_dir):
     assert "extra_body" not in call_kwargs
     assert call_kwargs["response_format"]["type"] == "json_schema"
     assert call_kwargs["response_format"]["json_schema"]["strict"] is True
+
+
+@pytest.mark.asyncio
+async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir):
+    bad_payload = {
+        "pages": [
+            {
+                "slug": "onboarding-guide",
+                "title": "Onboarding Guide",
+                "summary": "Step-by-step guide for new engineers joining the team.",
+                "related": ["/docs/anthropic/modes-chat"],
+                "body": BODY_250,
+            }
+        ]
+    }
+    fs = WikiFS(knowledge_dir)
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(bad_payload)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        with pytest.raises(LLMUpstreamError):
+            await agent.compile("onboarding.md", "raw " * 100)
+
+    # Nothing should have been persisted.
+    assert fs.list_pages() == []
