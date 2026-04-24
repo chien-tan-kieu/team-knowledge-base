@@ -1,5 +1,6 @@
 import { createElement, type ComponentPropsWithoutRef } from 'react'
 import ReactMarkdown, { type ExtraProps } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Props {
   content: string
@@ -37,7 +38,7 @@ const components = {
 export function WikiPageViewer({ content }: Props) {
   return (
     <div className="prose-wiki">
-      <ReactMarkdown components={components}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{content}</ReactMarkdown>
     </div>
   )
 }

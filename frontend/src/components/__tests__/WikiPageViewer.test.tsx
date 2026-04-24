@@ -13,4 +13,14 @@ describe('WikiPageViewer', () => {
     expect(paragraphs[0].getAttribute('data-source-line-start')).toBe('3')
     expect(paragraphs[1].getAttribute('data-source-line-start')).toBe('5')
   })
+
+  it('renders a GFM pipe table', () => {
+    const md = '| a | b |\n|---|---|\n| 1 | 2 |\n'
+    const { container } = render(<WikiPageViewer content={md} />)
+    const table = container.querySelector('table')
+    expect(table).not.toBeNull()
+    const cells = container.querySelectorAll('td')
+    const texts = Array.from(cells).map((c) => c.textContent)
+    expect(texts).toEqual(['1', '2'])
+  })
 })
