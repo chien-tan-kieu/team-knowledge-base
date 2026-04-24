@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from kb.agents.compile import CompileAgent, _structured_output_kwargs
+from kb.agents.compile import BLOCK_HTML_RE, CompileAgent, _structured_output_kwargs
 from kb.errors import LLMUpstreamError
 from kb.wiki.frontmatter import dump as dump_frontmatter, parse as parse_frontmatter
 from kb.wiki.fs import WikiFS
@@ -614,4 +614,47 @@ async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir):
             await agent.compile("onboarding.md", "raw " * 100)
 
     # Nothing should have been persisted.
+    assert fs.list_pages() == []
+
+
+def test_block_html_re_matches_table_tag():
+    assert BLOCK_HTML_RE.search("prose\n<table>\nstuff</table>")
+    assert BLOCK_HTML_RE.search("<p>para</p>")
+    assert BLOCK_HTML_RE.search("<TD>upper</TD>")
+
+
+def test_block_html_re_allows_inline_tags():
+    assert BLOCK_HTML_RE.search("one<br/>two") is None
+    assert BLOCK_HTML_RE.search("x <sub>y</sub> z") is None
+    assert BLOCK_HTML_RE.search("<details>hidden</details>") is None
+
+
+@pytest.mark.asyncio
+async def test_compile_rejects_when_llm_returns_block_html(knowledge_dir):
+    html_body = (
+        "Intro paragraph providing context so the body exceeds the two-hundred-character "
+        "minimum imposed by the schema. This text is only here for padding and carries "
+        "no meaningful content beyond that goal.\n\n"
+        "<table><tr><td>a</td></tr></table>\n"
+    )
+    bad_payload = {
+        "pages": [
+            {
+                "slug": "onboarding-guide",
+                "title": "Onboarding Guide",
+                "summary": "Step-by-step guide for new engineers joining the team.",
+                "related": [],
+                "body": html_body,
+            }
+        ]
+    }
+    fs = WikiFS(knowledge_dir)
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(bad_payload)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        with pytest.raises(LLMUpstreamError, match="raw HTML block tags"):
+            await agent.compile("onboarding.md", "raw " * 100)
+
     assert fs.list_pages() == []

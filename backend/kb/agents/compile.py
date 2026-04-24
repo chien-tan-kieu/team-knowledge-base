@@ -51,6 +51,14 @@ TABLE_RE = re.compile(
     re.MULTILINE,
 )
 
+BLOCK_HTML_TAGS = (
+    "table", "p", "div", "td", "tr", "thead", "tbody", "th", "ul", "ol", "li",
+)
+BLOCK_HTML_RE = re.compile(
+    r"<\s*(" + "|".join(BLOCK_HTML_TAGS) + r")\b[^>]*>",
+    re.IGNORECASE,
+)
+
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
 
 OLLAMA_MODEL_PREFIXES = ("ollama/", "ollama_chat/")
@@ -176,8 +184,19 @@ class CompileAgent:
 
         if self._require_verbatim:
             self._assert_verbatim(output, raw_content)
+        self._assert_no_block_html(output)
         self._assert_coverage(output, raw_content)
         self._write(output, filename, existing_summaries)
+
+    def _assert_no_block_html(self, output: CompileOutput) -> None:
+        for page in output.pages:
+            if BLOCK_HTML_RE.search(page.body):
+                logger.error(
+                    "compile.block_html_present", extra={"slug": page.slug}
+                )
+                raise LLMUpstreamError(
+                    "LLM output contained raw HTML block tags; markdown expected."
+                )
 
     def _assert_verbatim(self, output: CompileOutput, raw_content: str) -> None:
         required = _extract_required_blocks(raw_content)
