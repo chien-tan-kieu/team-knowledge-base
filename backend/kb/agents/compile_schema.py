@@ -43,6 +43,17 @@ class CompileOutput(BaseModel):
     )
 
 
+def _strip_leading_title(body: str, title: str) -> str:
+    stripped = body.lstrip()
+    for prefix in ("# ", "## "):
+        candidate = f"{prefix}{title}"
+        if stripped.startswith(candidate):
+            rest = stripped[len(candidate):]
+            if rest == "" or rest[0] == "\n":
+                return rest.lstrip("\n")
+    return body
+
+
 def render_page_md(
     page: WikiPageOutput,
     sources: list[str],
@@ -58,7 +69,8 @@ def render_page_md(
         "updated": updated,
         "edited_by": edited_by,
     }
-    body = f"# {page.title}\n\n{page.body}\n"
+    body_content = _strip_leading_title(page.body, page.title)
+    body = f"# {page.title}\n\n{body_content}\n"
     return dump_frontmatter(frontmatter, body)
 
 

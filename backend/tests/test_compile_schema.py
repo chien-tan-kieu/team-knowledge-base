@@ -131,3 +131,37 @@ def test_related_accepts_valid_slugs():
 def test_related_rejects_non_slug(bad_slug):
     with pytest.raises(ValidationError):
         WikiPageOutput(**_valid_page_kwargs(related=[bad_slug]))
+
+
+def test_render_page_md_strips_leading_h1_matching_title():
+    body = "# Foo Bar\n\nIntro paragraph. " + ("x" * 220)
+    page = WikiPageOutput(**_valid_page_kwargs(body=body))
+    md = render_page_md(page, sources=["s.md"], updated=date(2026, 4, 20))
+    _, rendered_body = parse_frontmatter(md)
+    assert rendered_body.startswith("# Foo Bar\n\nIntro paragraph.")
+    assert rendered_body.count("# Foo Bar") == 1
+
+
+def test_render_page_md_strips_leading_h2_matching_title():
+    body = "## Foo Bar\n\nIntro paragraph. " + ("x" * 220)
+    page = WikiPageOutput(**_valid_page_kwargs(body=body))
+    md = render_page_md(page, sources=["s.md"], updated=date(2026, 4, 20))
+    _, rendered_body = parse_frontmatter(md)
+    assert rendered_body.startswith("# Foo Bar\n\nIntro paragraph.")
+    assert "## Foo Bar" not in rendered_body
+
+
+def test_render_page_md_preserves_body_when_title_not_repeated():
+    body = "Intro paragraph. " + ("x" * 230)
+    page = WikiPageOutput(**_valid_page_kwargs(body=body))
+    md = render_page_md(page, sources=["s.md"], updated=date(2026, 4, 20))
+    _, rendered_body = parse_frontmatter(md)
+    assert rendered_body == f"# Foo Bar\n\n{body}\n"
+
+
+def test_render_page_md_does_not_strip_title_substring():
+    body = "## Foo Bar Extra\n\nContent. " + ("x" * 220)
+    page = WikiPageOutput(**_valid_page_kwargs(body=body))
+    md = render_page_md(page, sources=["s.md"], updated=date(2026, 4, 20))
+    _, rendered_body = parse_frontmatter(md)
+    assert "## Foo Bar Extra" in rendered_body
