@@ -118,3 +118,16 @@ def test_render_log_entry_omits_empty_categories():
     assert "Created: a, b" in entry
     assert "Updated:" not in entry
     assert "Proposed updates queued:" not in entry
+
+
+def test_related_accepts_valid_slugs():
+    WikiPageOutput(**_valid_page_kwargs(related=["other-slug", "a1"]))
+
+
+@pytest.mark.parametrize(
+    "bad_slug",
+    ["/docs/foo", "Foo", "foo.md", "foo_bar", "foo/bar", "-foo", "foo-", "", "foo--bar"],
+)
+def test_related_rejects_non_slug(bad_slug):
+    with pytest.raises(ValidationError):
+        WikiPageOutput(**_valid_page_kwargs(related=[bad_slug]))

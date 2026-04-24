@@ -1,8 +1,15 @@
 from datetime import date
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from kb.wiki.frontmatter import dump as dump_frontmatter
+
+
+SlugStr = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$"),
+]
 
 
 class WikiPageOutput(BaseModel):
@@ -12,7 +19,9 @@ class WikiPageOutput(BaseModel):
     )
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1, description="One paragraph, used by the index.")
-    related: list[str] = Field(description="Slugs of related pages. Empty list if none.")
+    related: list[SlugStr] = Field(
+        description="Slugs of related pages. Empty list if none."
+    )
     body: str = Field(
         min_length=200,
         description=(
