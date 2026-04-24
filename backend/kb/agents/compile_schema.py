@@ -1,8 +1,15 @@
 from datetime import date
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from kb.wiki.frontmatter import dump as dump_frontmatter
+
+
+SlugStr = Annotated[
+    str,
+    StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$"),
+]
 
 
 class WikiPageOutput(BaseModel):
@@ -12,7 +19,9 @@ class WikiPageOutput(BaseModel):
     )
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1, description="One paragraph, used by the index.")
-    related: list[str] = Field(description="Slugs of related pages. Empty list if none.")
+    related: list[SlugStr] = Field(
+        description="Slugs of related pages. Empty list if none."
+    )
     body: str = Field(
         min_length=200,
         description=(
@@ -34,6 +43,17 @@ class CompileOutput(BaseModel):
     )
 
 
+def _strip_leading_title(body: str, title: str) -> str:
+    stripped = body.lstrip()
+    for prefix in ("# ", "## "):
+        candidate = f"{prefix}{title}"
+        if stripped.startswith(candidate):
+            rest = stripped[len(candidate):]
+            if rest == "" or rest[0] == "\n":
+                return rest.lstrip("\n")
+    return body
+
+
 def render_page_md(
     page: WikiPageOutput,
     sources: list[str],
@@ -49,7 +69,8 @@ def render_page_md(
         "updated": updated,
         "edited_by": edited_by,
     }
-    body = f"# {page.title}\n\n{page.body}\n"
+    body_content = _strip_leading_title(page.body, page.title)
+    body = f"# {page.title}\n\n{body_content}\n"
     return dump_frontmatter(frontmatter, body)
 
 

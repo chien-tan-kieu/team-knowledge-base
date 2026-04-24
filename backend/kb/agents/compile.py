@@ -26,13 +26,18 @@ Each page has:
 - slug: lowercase, hyphen-separated, matches `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - title: human-readable.
 - summary: one paragraph synopsis (used as the index bullet).
-- related: slugs of cross-linked pages; empty list if none.
+- related: slugs of cross-linked pages; empty list if none. Each entry must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - body: free-form Markdown, at least 200 characters. Include whatever subheadings, lists, tables, and code blocks fit the concept.
 
 Your output will be validated before it is written:
 1. Every page body must be at least 200 characters.
 2. Every fenced code block and every Markdown table present in the raw document must appear verbatim inside the body of at least one page.
 3. The total length of all summaries and bodies combined must be at least {min_coverage:.0%} of the raw document length.
+
+Output format rules (body field of each page):
+- Use GitHub-Flavored Markdown only. Do not emit raw HTML block tags (<table>, <p>, <div>, <td>, <tr>, <thead>, <tbody>, <th>, <ul>, <ol>, <li>). Small inline HTML such as <br/>, <sub>, <sup>, <details> is allowed when useful.
+- Tables must use pipe syntax (| col | col |) with a --- separator row, not HTML.
+- Do not repeat the page title as a heading inside the body. The renderer already emits "# <title>" above the body; start the body with the first real subsection or paragraph.
 
 Rephrase prose where it helps clarity, but preserve numeric facts, named entities, code blocks, and tables verbatim. Do not invent information that is not in the raw document.
 
@@ -49,6 +54,14 @@ FENCED_CODE_RE = re.compile(r"```[^\n]*\n.*?\n```", re.DOTALL)
 TABLE_RE = re.compile(
     r"(?:^\|[^\n]+\|\n)+^\|\s*:?-{3,}.*\|\n(?:^\|[^\n]+\|\n?)+",
     re.MULTILINE,
+)
+
+BLOCK_HTML_TAGS = (
+    "table", "p", "div", "td", "tr", "thead", "tbody", "th", "ul", "ol", "li",
+)
+BLOCK_HTML_RE = re.compile(
+    r"<\s*(" + "|".join(BLOCK_HTML_TAGS) + r")\b[^>]*>",
+    re.IGNORECASE,
 )
 
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
@@ -176,8 +189,19 @@ class CompileAgent:
 
         if self._require_verbatim:
             self._assert_verbatim(output, raw_content)
+        self._assert_no_block_html(output)
         self._assert_coverage(output, raw_content)
         self._write(output, filename, existing_summaries)
+
+    def _assert_no_block_html(self, output: CompileOutput) -> None:
+        for page in output.pages:
+            if BLOCK_HTML_RE.search(page.body):
+                logger.error(
+                    "compile.block_html_present", extra={"slug": page.slug}
+                )
+                raise LLMUpstreamError(
+                    "LLM output contained raw HTML block tags; markdown expected."
+                )
 
     def _assert_verbatim(self, output: CompileOutput, raw_content: str) -> None:
         required = _extract_required_blocks(raw_content)
