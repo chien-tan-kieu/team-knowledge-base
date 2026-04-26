@@ -41,15 +41,19 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
   const { pages } = useWikiPages()
   const { collapsed, onHandlePointerDown, onHandleKeyDown, toggleCollapsed } = resize
 
+  // Always-rendered grid layout; text fades in/out rather than hard-mounting.
+  // Collapsing: fade out fast (150ms), no delay — text disappears as sidebar starts closing.
+  // Expanding: fade in (200ms) after a short delay (120ms) — text appears once sidebar has opened.
+  const textFade = collapsed
+    ? 'opacity-0 transition-opacity duration-150 ease-out'
+    : 'opacity-100 transition-opacity duration-200 ease-out delay-[120ms]'
+
   const navBase =
-    'w-full grid items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13.5px] font-medium transition-[background,color] duration-150 relative text-left'
-  const gridCols = collapsed ? 'grid-cols-[1fr]' : 'grid-cols-[18px_1fr_auto]'
+    'w-full grid grid-cols-[18px_1fr_auto] items-center gap-2.5 px-2.5 py-[7px] rounded-lg text-[13.5px] font-medium transition-[background,color] duration-150 relative text-left overflow-hidden'
 
   function linkClasses(isActive: boolean) {
     return [
       navBase,
-      gridCols,
-      collapsed ? 'justify-items-center w-[42px] px-2 py-2' : '',
       isActive
         ? 'bg-sand text-fg'
         : 'text-fg-muted hover:bg-line hover:text-fg',
@@ -66,18 +70,20 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
       style={{ width: 'var(--sidebar-w, 260px)', minWidth: 0 }}
       aria-label="Primary"
     >
-      {/* Section label */}
-      {!collapsed && (
-        <span
-          className="px-2.5 pt-2 pb-1 text-[10.5px] font-medium text-fg-dim uppercase tracking-[0.12em] flex items-center gap-2"
-        >
+      {/* Section label — height collapses smoothly rather than popping out */}
+      <div className={`overflow-hidden transition-[max-height,opacity] ease-out ${
+        collapsed
+          ? 'max-h-0 opacity-0 duration-150'
+          : 'max-h-[44px] opacity-100 duration-200 delay-[120ms]'
+      }`}>
+        <span className="px-2.5 pt-2 pb-1 text-[10.5px] font-medium text-fg-dim uppercase tracking-[0.12em] flex items-center gap-2">
           Navigate
           <span
             className="flex-1 mt-px border-t border-dashed"
             style={{ borderColor: 'var(--color-line)' }}
           />
         </span>
-      )}
+      </div>
 
       {/* Chat */}
       <NavLink
@@ -90,7 +96,7 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
         style={({ isActive }) => (isActive ? { boxShadow: 'var(--shadow-ring)' } : undefined)}
       >
         <NavIcon name="chat" />
-        {!collapsed && <span>Chat</span>}
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Chat</span>
       </NavLink>
 
       {/* Wiki — button, opens drawer */}
@@ -104,16 +110,15 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
         style={wikiActive ? { boxShadow: 'var(--shadow-ring)' } : undefined}
       >
         <NavIcon name="wiki" />
-        {!collapsed && (
-          <>
-            <span>Wiki</span>
-            <span
-              className="text-[11px] font-medium text-fg-dim bg-canvas px-[7px] py-[1px] rounded-full border border-line tabular-nums"
-            >
-              {pages.length}
-            </span>
-          </>
-        )}
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Wiki</span>
+        <span
+          className={`text-[11px] font-medium text-fg-dim bg-canvas px-[7px] py-[1px] rounded-full border border-line tabular-nums transition-opacity ease-out ${
+            collapsed ? 'opacity-0 duration-150' : 'opacity-100 duration-200 delay-[120ms]'
+          }`}
+          aria-hidden={collapsed}
+        >
+          {pages.length}
+        </span>
       </button>
 
       {/* Ingest */}
@@ -126,12 +131,19 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
         style={({ isActive }) => (isActive ? { boxShadow: 'var(--shadow-ring)' } : undefined)}
       >
         <NavIcon name="ingest" />
-        {!collapsed && <span>Add Document</span>}
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Add Document</span>
       </NavLink>
 
-      {/* Footer: stats card (hidden when collapsed) */}
-      {!collapsed && (
-        <div className="mt-auto p-2">
+      {/* Footer: stats card — collapses smoothly rather than popping out */}
+      <div
+        className={`overflow-hidden transition-[max-height,opacity] ease-out ${
+          collapsed
+            ? 'max-h-0 opacity-0 duration-150'
+            : 'max-h-[160px] opacity-100 duration-200 delay-[120ms]'
+        }`}
+        style={{ marginTop: 'auto' }}
+      >
+        <div className="p-2">
           <div
             className="bg-surface rounded-xl px-3.5 py-3 flex flex-col gap-1.5"
             style={{ boxShadow: 'var(--shadow-ring)' }}
@@ -165,7 +177,7 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Drag-to-resize handle — desktop only */}
       <button

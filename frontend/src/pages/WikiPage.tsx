@@ -52,7 +52,7 @@ export function WikiPage() {
   return (
     <div className="h-full overflow-y-auto pb-safe">
       <div
-        className="grid gap-8 px-6 md:px-10 lg:px-14 py-8"
+        className="max-w-[1100px] mx-auto grid gap-8 px-6 md:px-10 lg:px-14 py-8"
         style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 220px)' }}
       >
         <article className="min-w-0">

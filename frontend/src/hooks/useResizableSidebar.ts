@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * Click-and-drag resize for the left sidebar, Claude Desktop–style.
@@ -47,8 +47,9 @@ export function useResizableSidebar() {
   const startXRef = useRef(0)
   const startWRef = useRef(width)
 
-  // Apply width + collapsed state to documentElement
-  useEffect(() => {
+  // Apply width + collapsed state to documentElement synchronously before paint
+  // so CSS transitions start in the same frame as the React re-render.
+  useLayoutEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--sidebar-w', `${collapsed ? COLLAPSED_W : width}px`)
     if (collapsed) root.setAttribute('data-sidebar', 'collapsed')
@@ -75,14 +76,11 @@ export function useResizableSidebar() {
     function handleMove(e: PointerEvent) {
       const delta = e.clientX - startXRef.current
       const next = startWRef.current + delta
-      if (next < SNAP_THRESHOLD) {
-        setSnapHint(true)
-        // Show visual clamp at MIN_W while hinting at collapse
-        setWidth(MIN_W)
-      } else {
-        setSnapHint(false)
-        setWidth(Math.max(MIN_W, Math.min(MAX_W, next)))
-      }
+      setSnapHint(next < SNAP_THRESHOLD)
+      // No MIN_W floor during drag — sidebar follows cursor from COLLAPSED_W to MAX_W
+      // so there is no "stuck" dead-zone between MIN_W and SNAP_THRESHOLD.
+      // MIN_W is enforced on release (handleUp) for the stable expanded state.
+      setWidth(Math.max(COLLAPSED_W, Math.min(MAX_W, next)))
     }
 
     function handleUp(e: PointerEvent) {
@@ -114,7 +112,10 @@ export function useResizableSidebar() {
     startXRef.current = e.clientX
     startWRef.current = collapsed ? COLLAPSED_W : width
     setDragging(true)
-    if (collapsed) setCollapsed(false)
+    if (collapsed) {
+      setWidth(COLLAPSED_W)  // keep --sidebar-w at 64px so the layout effect doesn't flash to stored width
+      setCollapsed(false)
+    }
     document.body.classList.add('is-dragging')
   }, [collapsed, width])
 

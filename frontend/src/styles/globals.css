@@ -183,7 +183,8 @@ body.is-dragging * {
    resize stays precise. */
 aside[aria-label="Primary"] {
   transition: transform 200ms var(--ease-out),
-              width 220ms var(--ease-out);
+              width 280ms var(--ease-out),
+              padding 280ms var(--ease-out);
 }
 body.is-dragging aside[aria-label="Primary"] {
   transition: none;
