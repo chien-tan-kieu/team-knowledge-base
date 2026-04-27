@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, NavLink, useLocation, useParams } from 'react-router-dom'
 import { useWikiPages } from '../hooks/useWiki'
 import type { useResizableSidebar } from '../hooks/useResizableSidebar'
 
@@ -37,14 +38,25 @@ function NavIcon({ name }: { name: 'chat' | 'wiki' | 'ingest' }) {
 
 export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize }: Props) {
   const location = useLocation()
-  const wikiActive = wikiDrawerOpen || location.pathname.startsWith('/wiki')
+  const { slug: currentSlug } = useParams<{ slug?: string }>()
   const { pages } = useWikiPages()
   const { collapsed, onHandlePointerDown, onHandleKeyDown, toggleCollapsed } = resize
+  const [wikiExpanded, setWikiExpanded] = useState(false)
+  // On mobile (open=true the sidebar is a drawer), always render fully expanded regardless
+  // of the desktop collapsed state stored in localStorage.
+  const visuallyCollapsed = collapsed && !open
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting accordion state when sidebar closes is the canonical pattern.
+    if (!open) setWikiExpanded(false)
+  }, [open])
+
+  const wikiActive = wikiDrawerOpen || wikiExpanded || location.pathname.startsWith('/wiki')
 
   // Always-rendered grid layout; text fades in/out rather than hard-mounting.
   // Collapsing: fade out fast (150ms), no delay — text disappears as sidebar starts closing.
   // Expanding: fade in (200ms) after a short delay (120ms) — text appears once sidebar has opened.
-  const textFade = collapsed
+  const textFade = visuallyCollapsed
     ? 'opacity-0 transition-opacity duration-150 ease-out'
     : 'opacity-100 transition-opacity duration-200 ease-out delay-[120ms]'
 
@@ -67,12 +79,12 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
         open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         collapsed ? 'md:items-center md:px-1.5' : '',
       ].join(' ')}
-      style={{ width: 'var(--sidebar-w, 260px)', minWidth: 0 }}
+      style={{ width: open && collapsed ? `${resize.width}px` : 'var(--sidebar-w, 260px)', minWidth: 0 }}
       aria-label="Primary"
     >
       {/* Section label — height collapses smoothly rather than popping out */}
       <div className={`overflow-hidden transition-[max-height,opacity] ease-out ${
-        collapsed
+        visuallyCollapsed
           ? 'max-h-0 opacity-0 duration-150'
           : 'max-h-[44px] opacity-100 duration-200 delay-[120ms]'
       }`}>
@@ -90,54 +102,99 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
         to="/"
         end
         onClick={onNavigate}
-        title={collapsed ? 'Chat' : undefined}
+        title={visuallyCollapsed ? 'Chat' : undefined}
         data-label="Chat"
         className={({ isActive }) => linkClasses(isActive)}
         style={({ isActive }) => (isActive ? { boxShadow: 'var(--shadow-ring)' } : undefined)}
       >
         <NavIcon name="chat" />
-        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Chat</span>
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={visuallyCollapsed}>Chat</span>
       </NavLink>
 
-      {/* Wiki — button, opens drawer */}
+      {/* Wiki — button, opens drawer on desktop / inline list on mobile */}
       <button
         type="button"
-        onClick={onWikiToggle}
-        aria-expanded={wikiDrawerOpen}
-        title={collapsed ? 'Wiki' : undefined}
+        onClick={() => {
+          if (open) {
+            setWikiExpanded(e => !e)
+          } else {
+            onWikiToggle()
+          }
+        }}
+        aria-expanded={wikiExpanded || wikiDrawerOpen}
+        title={visuallyCollapsed ? 'Wiki' : undefined}
         data-label="Wiki"
         className={linkClasses(wikiActive)}
         style={wikiActive ? { boxShadow: 'var(--shadow-ring)' } : undefined}
       >
         <NavIcon name="wiki" />
-        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Wiki</span>
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={visuallyCollapsed}>Wiki</span>
         <span
           className={`text-[11px] font-medium text-fg-dim bg-canvas px-[7px] py-[1px] rounded-full border border-line tabular-nums transition-opacity ease-out ${
-            collapsed ? 'opacity-0 duration-150' : 'opacity-100 duration-200 delay-[120ms]'
+            visuallyCollapsed ? 'opacity-0 duration-150' : 'opacity-100 duration-200 delay-[120ms]'
           }`}
-          aria-hidden={collapsed}
+          aria-hidden={visuallyCollapsed}
         >
           {pages.length}
         </span>
       </button>
 
+      {/* Mobile inline wiki list — shown when expanded; desktop uses WikiDrawer */}
+      {wikiExpanded && (
+        <nav className="md:hidden flex flex-col gap-px py-1">
+          {pages.map(s => {
+            const active = s === currentSlug
+            return (
+              <Link
+                key={s}
+                to={`/wiki/${s}`}
+                onClick={onNavigate}
+                className={[
+                  'grid grid-cols-[8px_1fr] items-center gap-2',
+                  'pl-[34px] pr-2.5 py-[5px] rounded-md',
+                  'font-mono text-[12.5px] tracking-tight',
+                  active
+                    ? 'bg-sand text-fg'
+                    : 'text-fg-muted hover:bg-line hover:text-fg',
+                ].join(' ')}
+                style={active ? { boxShadow: 'var(--shadow-ring)' } : undefined}
+              >
+                <span
+                  className="inline-block w-1 h-1 rounded-full flex-shrink-0"
+                  style={{
+                    background: active ? 'var(--color-accent)' : 'var(--color-line-strong)',
+                  }}
+                  aria-hidden
+                />
+                <span className="truncate">{s}</span>
+              </Link>
+            )
+          })}
+          {pages.length === 0 && (
+            <p className="pl-[34px] pr-2.5 py-2 text-xs text-fg-dim font-sans">
+              No pages yet.
+            </p>
+          )}
+        </nav>
+      )}
+
       {/* Ingest */}
       <NavLink
         to="/ingest"
         onClick={onNavigate}
-        title={collapsed ? 'Add Document' : undefined}
+        title={visuallyCollapsed ? 'Add Document' : undefined}
         data-label="Add Document"
         className={({ isActive }) => linkClasses(isActive)}
         style={({ isActive }) => (isActive ? { boxShadow: 'var(--shadow-ring)' } : undefined)}
       >
         <NavIcon name="ingest" />
-        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={collapsed}>Add Document</span>
+        <span className={`whitespace-nowrap ${textFade}`} aria-hidden={visuallyCollapsed}>Add Document</span>
       </NavLink>
 
       {/* Footer: stats card — collapses smoothly rather than popping out */}
       <div
         className={`overflow-hidden transition-[max-height,opacity] ease-out ${
-          collapsed
+          visuallyCollapsed
             ? 'max-h-0 opacity-0 duration-150'
             : 'max-h-[160px] opacity-100 duration-200 delay-[120ms]'
         }`}
