@@ -36,8 +36,7 @@ export function ChatInput({ onSend, onStop, streaming = false, disabled = false 
 
   return (
     <div
-      className="w-full max-w-[740px] mx-auto grid grid-cols-[1fr_auto] items-end gap-2 bg-surface rounded-2xl pl-4 pr-1.5 py-1.5 transition-[box-shadow] duration-200 ease-out focus-within:[box-shadow:0_18px_60px_rgba(20,20,19,0.1),0_0_0_1px_var(--color-accent)]"
-      style={{ boxShadow: "var(--shadow-elevated)" }}
+      className="w-full max-w-[740px] mx-auto grid grid-cols-[1fr_auto] items-end gap-2 bg-surface rounded-2xl pl-4 pr-1.5 py-1.5 outline-none transition-[box-shadow] duration-200 ease-out [box-shadow:var(--shadow-elevated)] focus-within:[box-shadow:0_18px_60px_rgba(20,20,19,0.1),0_0_0_1px_var(--color-ring-warm)]"
     >
       <div className="flex flex-col gap-2 py-2 min-w-0">
         <textarea

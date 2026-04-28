@@ -164,10 +164,12 @@ html[data-theme="dark"] body::before {
   background: var(--color-ring-warm);
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-focus-blue);
-  outline-offset: 2px;
-  border-radius: 6px;
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-focus-blue);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 /* Drag feedback */
