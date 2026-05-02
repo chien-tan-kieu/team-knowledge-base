@@ -19,8 +19,8 @@ def _make_streaming_mock(tokens: list[str]):
 
 
 @pytest.mark.asyncio
-async def test_query_streams_answer(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_streams_answer(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -47,8 +47,8 @@ async def test_query_streams_answer(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_query_returns_citations(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_returns_citations(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -69,8 +69,8 @@ async def test_query_returns_citations(knowledge_dir):
     assert any("deploy-process" in t for t in tokens)
 
 
-async def test_query_agent_wraps_litellm_errors(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_agent_wraps_litellm_errors(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     agent = QueryAgent(fs=fs, model="test-model")
 
     with patch("kb.agents.query.litellm.acompletion", side_effect=RuntimeError("boom")):
@@ -80,8 +80,8 @@ async def test_query_agent_wraps_litellm_errors(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_query_takes_messages_list(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_takes_messages_list(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -112,8 +112,8 @@ async def test_query_takes_messages_list(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase1_uses_last_n_turns(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase1_uses_last_n_turns(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
@@ -144,8 +144,8 @@ async def test_phase1_uses_last_n_turns(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase2_pages_are_line_numbered(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase2_pages_are_line_numbered(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -169,8 +169,8 @@ async def test_phase2_pages_are_line_numbered(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase2_prompt_requests_ranged_citations(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase2_prompt_requests_ranged_citations(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx",

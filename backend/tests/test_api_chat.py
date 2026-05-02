@@ -15,9 +15,9 @@ async def _mock_query(question: str):
 
 
 @pytest.fixture
-def client(knowledge_dir):
+def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir)
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     tc = TestClient(app)
     authenticate(tc)

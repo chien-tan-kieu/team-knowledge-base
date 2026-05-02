@@ -4,14 +4,14 @@ from kb.wiki.frontmatter import parse as parse_frontmatter
 
 
 class WikiFS:
-    def __init__(self, knowledge_dir: Path) -> None:
-        self._raw = knowledge_dir / "raw"
-        self._wiki = knowledge_dir / "wiki"
-        self._pages = knowledge_dir / "wiki" / "pages"
-        self._schema = knowledge_dir / "schema"
+    def __init__(self, knowledge_dir: Path, schema_dir: Path) -> None:
+        self._raw    = knowledge_dir / "raw"
+        self._wiki   = knowledge_dir / "wiki"
+        self._pages  = knowledge_dir / "wiki" / "pages"
+        self._schema = schema_dir
         self._raw.mkdir(parents=True, exist_ok=True)
         self._pages.mkdir(parents=True, exist_ok=True)
-        self._schema.mkdir(parents=True, exist_ok=True)
+        # schema dir is app-owned, not auto-created by WikiFS
 
     def read_index(self) -> str:
         return (self._wiki / "index.md").read_text(encoding="utf-8")

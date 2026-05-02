@@ -10,9 +10,9 @@ from tests.conftest import authenticate
 
 
 @pytest.fixture
-def client(knowledge_dir):
+def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir)
     store = InMemoryJobStore()
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     app.dependency_overrides[get_job_store] = lambda: store
