@@ -165,3 +165,28 @@ def test_render_page_md_does_not_strip_title_substring():
     md = render_page_md(page, sources=["s.md"], updated=date(2026, 4, 20))
     _, rendered_body = parse_frontmatter(md)
     assert "## Foo Bar Extra" in rendered_body
+
+
+def test_render_page_md_injects_see_also_when_related_non_empty():
+    page = WikiPageOutput(**_valid_page_kwargs(related=["deploy-process", "ci-cd"]))
+    md = render_page_md(page, sources=["src.md"], updated=date(2026, 5, 2))
+    assert "## See also" in md
+    assert "- [[deploy-process]]" in md
+    assert "- [[ci-cd]]" in md
+
+
+def test_render_page_md_no_see_also_when_related_empty():
+    page = WikiPageOutput(**_valid_page_kwargs(related=[]))
+    md = render_page_md(page, sources=["src.md"], updated=date(2026, 5, 2))
+    assert "## See also" not in md
+
+
+def test_render_page_md_see_also_after_body():
+    page = WikiPageOutput(**_valid_page_kwargs(
+        body="x" * 250,
+        related=["other-page"],
+    ))
+    md = render_page_md(page, sources=["src.md"], updated=date(2026, 5, 2))
+    body_end = md.rfind("x" * 10)
+    see_also_pos = md.find("## See also")
+    assert see_also_pos > body_end
