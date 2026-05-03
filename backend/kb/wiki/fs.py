@@ -46,3 +46,10 @@ class WikiFS:
 
     def read_schema(self) -> str:
         return (self._schema / "SCHEMA.md").read_text(encoding="utf-8")
+
+    def list_raw_files(self) -> list[str]:
+        return sorted(p.name for p in self._raw.glob("*.md"))
+
+    def read_log(self) -> str:
+        log_path = self._wiki / "log.md"
+        return log_path.read_text(encoding="utf-8") if log_path.exists() else ""

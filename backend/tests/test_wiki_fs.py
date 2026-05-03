@@ -92,3 +92,28 @@ def test_read_page_raises_on_missing_frontmatter(knowledge_dir, schema_dir):
     )
     with pytest.raises(ValueError, match="frontmatter"):
         fs.read_page("bar")
+
+
+def test_list_raw_files_returns_md_only(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    (knowledge_dir / "raw" / "guide.md").write_text("# Guide")
+    (knowledge_dir / "raw" / "notes.md").write_text("# Notes")
+    (knowledge_dir / "raw" / ".gitkeep").write_text("")
+    assert fs.list_raw_files() == ["guide.md", "notes.md"]
+
+
+def test_list_raw_files_empty(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    assert fs.list_raw_files() == []
+
+
+def test_read_log_returns_content(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    (knowledge_dir / "wiki" / "log.md").write_text("## [2026-05-01] ingest | guide.md\n")
+    assert "guide.md" in fs.read_log()
+
+
+def test_read_log_returns_empty_string_when_absent(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    (knowledge_dir / "wiki" / "log.md").unlink()
+    assert fs.read_log() == ""
