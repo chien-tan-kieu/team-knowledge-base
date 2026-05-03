@@ -5,9 +5,9 @@ from kb.wiki.fs import WikiFS
 from tests.conftest import authenticate
 
 
-def test_lint_returns_result(knowledge_dir):
+def test_lint_returns_result(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page("orphan", "# Orphan")
     fs.write_index("# Index\n\n")
     app.dependency_overrides[get_wiki_fs] = lambda: fs

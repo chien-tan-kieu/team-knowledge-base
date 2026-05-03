@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from kb.agents.query import QueryAgent
+from kb.agents.query import QueryAgent, _parse_wikilinks
 from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
@@ -19,8 +19,8 @@ def _make_streaming_mock(tokens: list[str]):
 
 
 @pytest.mark.asyncio
-async def test_query_streams_answer(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_streams_answer(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -47,8 +47,8 @@ async def test_query_streams_answer(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_query_returns_citations(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_returns_citations(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -69,8 +69,8 @@ async def test_query_returns_citations(knowledge_dir):
     assert any("deploy-process" in t for t in tokens)
 
 
-async def test_query_agent_wraps_litellm_errors(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_agent_wraps_litellm_errors(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     agent = QueryAgent(fs=fs, model="test-model")
 
     with patch("kb.agents.query.litellm.acompletion", side_effect=RuntimeError("boom")):
@@ -80,8 +80,8 @@ async def test_query_agent_wraps_litellm_errors(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_query_takes_messages_list(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_query_takes_messages_list(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -112,8 +112,8 @@ async def test_query_takes_messages_list(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase1_uses_last_n_turns(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase1_uses_last_n_turns(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
@@ -144,8 +144,8 @@ async def test_phase1_uses_last_n_turns(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase2_pages_are_line_numbered(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase2_pages_are_line_numbered(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -169,8 +169,8 @@ async def test_phase2_pages_are_line_numbered(knowledge_dir):
 
 
 @pytest.mark.asyncio
-async def test_phase2_prompt_requests_ranged_citations(knowledge_dir):
-    fs = WikiFS(knowledge_dir)
+async def test_phase2_prompt_requests_ranged_citations(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx",
@@ -189,3 +189,90 @@ async def test_phase2_prompt_requests_ranged_citations(knowledge_dir):
     phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
     assert "__CITATIONS__:" in phase2_system
     assert "slug:line_start-line_end" in phase2_system or "slug-one:15-22" in phase2_system
+
+
+def test_parse_wikilinks_extracts_slugs():
+    body = "Some text.\n\n## See also\n\n- [[deploy-process]]\n- [[ci-cd]]\n"
+    assert _parse_wikilinks(body) == ["deploy-process", "ci-cd"]
+
+
+def test_parse_wikilinks_empty_body():
+    assert _parse_wikilinks("No links here.") == []
+
+
+def test_parse_wikilinks_ignores_non_slug_content():
+    assert _parse_wikilinks("[[]]  [[UPPER]]") == []
+
+
+@pytest.mark.asyncio
+async def test_query_expands_linked_pages(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
+        "# Deploy Process\n\nRun make deploy.\n\n## See also\n\n- [[ci-cd]]\n",
+    )
+    fs.write_page(
+        "ci-cd",
+        "---\nslug: ci-cd\ntitle: CI/CD\nedited_by: llm\n---\n"
+        "# CI/CD\n\nPipeline details here.\n",
+    )
+    fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="claude-sonnet-4-6")
+        async for _ in agent.query([{"role": "user", "content": "How do I deploy?"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "ci-cd" in phase2_system
+
+
+@pytest.mark.asyncio
+async def test_query_does_not_duplicate_already_selected_slug(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
+        "# Deploy Process\n\nRun make deploy.\n\n## See also\n\n- [[deploy-process]]\n",
+    )
+    fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="claude-sonnet-4-6")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert phase2_system.count("--- deploy-process ---") == 1
+
+
+@pytest.mark.asyncio
+async def test_query_skips_missing_linked_page(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
+        "# Deploy Process\n\nRun make deploy.\n\n## See also\n\n- [[nonexistent]]\n",
+    )
+    fs.write_index("# Index\n\n- [[deploy-process]] — How to deploy.\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])):
+        agent = QueryAgent(fs=fs, model="claude-sonnet-4-6")
+        tokens = []
+        async for t in agent.query([{"role": "user", "content": "q"}]):
+            tokens.append(t)
+
+    assert tokens == ["ok"]

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getWikiPages, getWikiPage, ingestFile, ApiError, ensureSession, resetSessionPromise } from '../api'
+import { getWikiPages, getWikiPage, ingestFile, ApiError, ensureSession, resetSessionPromise, syncVault } from '../api'
 
 beforeEach(() => {
   vi.restoreAllMocks()
@@ -160,5 +160,32 @@ describe('ensureSession', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(okRes))
 
     await expect(ensureSession()).resolves.toBeUndefined()
+  })
+})
+
+describe('syncVault', () => {
+  it('POSTs to /api/ingest/sync and returns jobs list', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ jobs: [{ job_id: 'abc', filename: 'guide.md' }] }),
+    }))
+    const { jobs } = await syncVault()
+    expect(jobs).toHaveLength(1)
+    expect(jobs[0].filename).toBe('guide.md')
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/ingest/sync',
+      expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('throws ApiError on non-ok response', async () => {
+    const res = {
+      ok: false,
+      status: 500,
+      headers: new Headers(),
+      json: async () => ({ code: 'INTERNAL_ERROR', message: 'fail', request_id: null }),
+    } as unknown as Response
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(res))
+    await expect(syncVault()).rejects.toBeInstanceOf(ApiError)
   })
 })

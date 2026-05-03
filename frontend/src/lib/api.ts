@@ -122,3 +122,7 @@ export function coerceApiError(e: unknown, fallbackMessage: string = 'Request fa
   if (e instanceof ApiError) return e
   return new ApiError({ code: 'INTERNAL_ERROR', message: fallbackMessage, requestId: null, status: 0 })
 }
+
+export async function syncVault(): Promise<{ jobs: { job_id: string; filename: string }[] }> {
+  return fetchJson('/api/ingest/sync', { method: 'POST' })
+}

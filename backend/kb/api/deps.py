@@ -6,7 +6,7 @@ from kb.config import settings
 
 @lru_cache
 def get_wiki_fs() -> WikiFS:
-    return WikiFS(settings.knowledge_dir)
+    return WikiFS(settings.knowledge_dir, settings.schema_dir)
 
 
 @lru_cache

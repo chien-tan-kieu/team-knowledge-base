@@ -71,6 +71,9 @@ def render_page_md(
     }
     body_content = _strip_leading_title(page.body, page.title)
     body = f"# {page.title}\n\n{body_content}\n"
+    if page.related:
+        links = "\n".join(f"- [[{slug}]]" for slug in page.related)
+        body += f"\n## See also\n\n{links}\n"
     return dump_frontmatter(frontmatter, body)
 
 

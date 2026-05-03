@@ -10,9 +10,9 @@ from tests.conftest import authenticate
 
 
 @pytest.fixture
-def client(knowledge_dir):
+def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir)
     store = InMemoryJobStore()
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     app.dependency_overrides[get_job_store] = lambda: store
@@ -84,3 +84,66 @@ def test_get_failed_job_returns_500(client):
         assert body["code"] == "INTERNAL_ERROR"
         assert body["message"] == "Ingest failed."
         assert "request_id" in body
+
+
+def test_sync_vault_creates_jobs_for_unprocessed_files(client):
+    tc, store = client
+    knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent
+
+    # Drop a raw file that has no log entry
+    (knowledge_dir_path / "raw" / "new-doc.md").write_text("# New\n\nContent.")
+
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock()
+        resp = tc.post("/api/ingest/sync")
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert len(body["jobs"]) == 1
+    assert body["jobs"][0]["filename"] == "new-doc.md"
+    assert "job_id" in body["jobs"][0]
+
+
+def test_sync_vault_skips_already_processed_files(client):
+    tc, store = client
+    knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent
+
+    (knowledge_dir_path / "raw" / "existing.md").write_text("# Existing")
+    (knowledge_dir_path / "wiki" / "log.md").write_text(
+        "## [2026-05-01] ingest | existing.md\nCreated: some-page\n"
+    )
+
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock()
+        resp = tc.post("/api/ingest/sync")
+
+    assert resp.status_code == 202
+    assert resp.json()["jobs"] == []
+
+
+def test_sync_vault_returns_empty_when_raw_is_empty(client):
+    tc, _ = client
+    resp = tc.post("/api/ingest/sync")
+    assert resp.status_code == 202
+    assert resp.json() == {"jobs": []}
+
+
+def test_sync_vault_is_idempotent(client):
+    tc, store = client
+    knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent
+
+    (knowledge_dir_path / "raw" / "doc.md").write_text("# Doc")
+
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock()
+        resp1 = tc.post("/api/ingest/sync")
+        job_id = resp1.json()["jobs"][0]["job_id"]
+
+        # Mark it done + write log entry so second call skips it
+        store.update_job(job_id, status=JobStatus.DONE)
+        (knowledge_dir_path / "wiki" / "log.md").write_text(
+            f"## [2026-05-02] ingest | doc.md\nCreated: doc-page\n"
+        )
+        resp2 = tc.post("/api/ingest/sync")
+
+    assert resp2.json()["jobs"] == []

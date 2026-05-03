@@ -15,8 +15,3 @@ build/
 .coverage
 htmlcov/
 
-# Runtime knowledge base content (directory stubs kept via .gitkeep)
-knowledge/raw/*
-!knowledge/raw/.gitkeep
-knowledge/wiki/pages/*
-!knowledge/wiki/pages/.gitkeep

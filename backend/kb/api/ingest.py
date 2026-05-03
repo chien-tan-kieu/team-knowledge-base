@@ -79,3 +79,22 @@ def get_job_status(
     if job.status == JobStatus.FAILED:
         raise HTTPException(status_code=500, detail=job.error or INGEST_FAILED_MESSAGE)
     return job
+
+
+@router.post("/sync", status_code=202)
+async def sync_vault(
+    background_tasks: BackgroundTasks,
+    fs: WikiFS = Depends(get_wiki_fs),
+    store: InMemoryJobStore = Depends(get_job_store),
+):
+    log_content = fs.read_log()
+    jobs = []
+    for filename in fs.list_raw_files():
+        if f"ingest | {filename}" not in log_content:
+            raw_content = fs.read_raw(filename)
+            job = store.create_job(filename)
+            background_tasks.add_task(
+                _run_compile, job.job_id, filename, raw_content, fs, store
+            )
+            jobs.append({"job_id": job.job_id, "filename": filename})
+    return {"jobs": jobs}
