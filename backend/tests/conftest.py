@@ -1,5 +1,6 @@
 import os
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
+os.environ.setdefault("KNOWLEDGE_DIR", "/tmp/kb-test")
 
 import pytest
 from pathlib import Path
