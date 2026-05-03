@@ -1,8 +1,19 @@
+import { useEffect, useRef } from "react";
 import { IngestDropzone } from "../components/IngestDropzone";
 import { useIngest } from "../hooks/useIngest";
+import { useVaultSync } from "../hooks/useVaultSync";
 
 export function IngestPage() {
   const { job, uploading, upload } = useIngest();
+  const { triggerSync, syncJobs, syncing } = useVaultSync();
+  const didSyncRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (job?.status === "done" && didSyncRef.current !== job.job_id) {
+      didSyncRef.current = job.job_id;
+      triggerSync();
+    }
+  }, [job?.status, job?.job_id, triggerSync]);
 
   return (
     <div className="h-full overflow-y-auto pb-safe">
@@ -33,6 +44,45 @@ export function IngestPage() {
         </header>
 
         <IngestDropzone onDrop={upload} job={job} uploading={uploading} />
+
+        <div className="mt-6 flex items-center gap-3">
+          <button
+            onClick={triggerSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium rounded border border-border-cream text-fg hover:bg-warm-sand disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {syncing ? "Syncing…" : "Sync vault"}
+          </button>
+          {syncing && (
+            <span className="text-[13px] text-fg-muted">
+              Compiling vault files…
+            </span>
+          )}
+        </div>
+
+        {syncJobs.length > 0 && (
+          <ul className="mt-4 space-y-1">
+            {syncJobs.map((j) => (
+              <li key={j.job_id} className="text-[13px] text-fg-muted flex items-center gap-2">
+                <span
+                  className={
+                    j.status === "done"
+                      ? "text-green-600"
+                      : j.status === "failed"
+                      ? "text-red-600"
+                      : "text-fg-dim"
+                  }
+                >
+                  {j.status === "done" ? "done" : j.status === "failed" ? "failed" : "pending"}
+                </span>
+                {j.filename}
+                {j.error && (
+                  <span className="text-red-600 text-[12px]">{j.error}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
