@@ -1,4 +1,4 @@
-import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage, SyncJob } from './types'
+import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
 
 export class ApiError extends Error {
   code: string
