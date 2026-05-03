@@ -1,4 +1,4 @@
-import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
+import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage, SyncJob } from './types'
 
 export class ApiError extends Error {
   code: string
@@ -121,4 +121,8 @@ export function resetSessionPromise(): void {
 export function coerceApiError(e: unknown, fallbackMessage: string = 'Request failed.'): ApiError {
   if (e instanceof ApiError) return e
   return new ApiError({ code: 'INTERNAL_ERROR', message: fallbackMessage, requestId: null, status: 0 })
+}
+
+export async function syncVault(): Promise<{ jobs: { job_id: string; filename: string }[] }> {
+  return fetchJson('/api/ingest/sync', { method: 'POST' })
 }

@@ -35,3 +35,10 @@ export interface ApiErrorBody {
   message: string
   request_id: string | null
 }
+
+export interface SyncJob {
+  job_id: string
+  filename: string
+  status: JobStatus
+  error?: string
+}
