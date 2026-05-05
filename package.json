@@ -2,6 +2,7 @@
   "name": "team-knowledge-base",
   "private": true,
   "scripts": {
+    "predev": "bash scripts/setup-env.sh",
     "dev": "pnpm -r --parallel run dev",
     "dev:backend": "pnpm --filter backend dev",
     "dev:frontend": "pnpm --filter frontend dev"

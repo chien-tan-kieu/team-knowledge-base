@@ -2,6 +2,6 @@
   "name": "backend",
   "private": true,
   "scripts": {
-    "dev": ".venv/bin/uvicorn kb.main:app --reload --port 8000"
+    "dev": "uv run uvicorn kb.main:app --reload --port 8000"
   }
 }
