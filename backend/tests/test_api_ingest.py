@@ -142,7 +142,7 @@ def test_sync_vault_is_idempotent(client):
         # Mark it done + write log entry so second call skips it
         store.update_job(job_id, status=JobStatus.DONE)
         (knowledge_dir_path / "wiki" / "log.md").write_text(
-            f"## [2026-05-02] ingest | doc.md\nCreated: doc-page\n"
+            "## [2026-05-02] ingest | doc.md\nCreated: doc-page\n"
         )
         resp2 = tc.post("/api/ingest/sync")
 
