@@ -99,6 +99,25 @@ def _extract_required_blocks(raw: str) -> list[str]:
     return FENCED_CODE_RE.findall(raw) + TABLE_RE.findall(raw)
 
 
+def _unescape_literal_newlines(text: str) -> str:
+    """Fix LLMs that double-escape newlines in structured JSON output.
+
+    When this happens, a literal `\\n` (backslash + n) survives JSON parsing
+    as two-character text instead of becoming a real line break. Fenced code
+    blocks are left untouched since their content must stay verbatim.
+    """
+    if "\\n" not in text:
+        return text
+    parts = []
+    last_end = 0
+    for match in FENCED_CODE_RE.finditer(text):
+        parts.append(text[last_end:match.start()].replace("\\n", "\n"))
+        parts.append(match.group(0))
+        last_end = match.end()
+    parts.append(text[last_end:].replace("\\n", "\n"))
+    return "".join(parts)
+
+
 def _merge_unique(existing: list[str], new: list[str]) -> list[str]:
     seen = set()
     merged: list[str] = []
@@ -209,6 +228,18 @@ class CompileAgent:
             raise CompileValidationError(
                 "LLM output did not match the expected schema."
             ) from exc
+
+        output = output.model_copy(
+            update={
+                "pages": [
+                    page.model_copy(update={
+                        "body": _unescape_literal_newlines(page.body),
+                        "summary": _unescape_literal_newlines(page.summary),
+                    })
+                    for page in output.pages
+                ]
+            }
+        )
 
         if self._require_verbatim:
             self._assert_verbatim(output, raw_content)

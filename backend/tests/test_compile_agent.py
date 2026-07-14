@@ -617,6 +617,36 @@ async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir, 
     assert fs.list_pages() == []
 
 
+@pytest.mark.asyncio
+async def test_compile_unescapes_literal_newlines_in_body(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    # Simulates an LLM that double-escapes newlines in structured JSON output:
+    # the raw JSON text contains a literal `\\n` (backslash, backslash, n),
+    # which JSON-decodes to the 2-character text "\n" instead of a real
+    # line break — this is the raw string content of the mocked response.
+    raw_output = (
+        r'{"pages": [{"slug": "onboarding-guide", "title": "Onboarding Guide", '
+        r'"summary": "Step-by-step guide for new engineers joining the team.", '
+        r'"related": [], '
+        r'"body": "First paragraph padded with enough text to be realistic.'
+        r'\\nSecond paragraph after what should be a real line break, '
+        + "z" * 150
+        + r'"}]}'
+    )
+    response = MagicMock()
+    response.choices[0].message.content = raw_output
+
+    with patch("litellm.acompletion", new=AsyncMock(return_value=response)):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    _, body = parse_frontmatter(
+        _page_path(knowledge_dir, "onboarding-guide").read_text(encoding="utf-8")
+    )
+    assert "\\n" not in body
+    assert "First paragraph padded with enough text to be realistic.\nSecond paragraph" in body
+
+
 def test_block_html_re_matches_table_tag():
     assert BLOCK_HTML_RE.search("prose\n<table>\nstuff</table>")
     assert BLOCK_HTML_RE.search("<p>para</p>")
