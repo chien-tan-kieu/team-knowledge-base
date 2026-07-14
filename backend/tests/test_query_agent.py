@@ -276,3 +276,97 @@ async def test_query_skips_missing_linked_page(knowledge_dir, schema_dir):
             tokens.append(t)
 
     assert tokens == ["ok"]
+
+
+@pytest.mark.asyncio
+async def test_phase1_requests_structured_output(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
+    )
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = '{"slugs": ["deploy-process"]}'
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="gemini/gemini-2.5-flash")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase1_kwargs = mock_llm.call_args_list[0].kwargs
+    assert phase1_kwargs["response_format"]["json_schema"]["name"] == "select_output"
+
+
+@pytest.mark.asyncio
+async def test_phase1_parses_json_slug_response(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",
+    )
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = '{"slugs": ["deploy-process"]}'
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="gemini/gemini-2.5-flash")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "--- deploy-process ---" in phase2_system
+
+
+@pytest.mark.asyncio
+async def test_phase1_falls_back_to_comma_parse_on_free_text(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",
+    )
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = "deploy-process, nonexistent-slug"
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="gemini/gemini-2.5-flash")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "--- deploy-process ---" in phase2_system
+
+
+@pytest.mark.asyncio
+async def test_selected_slug_not_in_index_is_filtered(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "deploy-process",
+        "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",
+    )
+    # 'orphan' exists on disk but is NOT in the index — must not be selectable.
+    fs.write_page(
+        "orphan",
+        "---\nslug: orphan\ntitle: Orphan\n---\nSecret orphan content.\n",
+    )
+    fs.write_index("- [[deploy-process]]\n")
+
+    select_response = MagicMock()
+    select_response.choices[0].message.content = '{"slugs": ["orphan", "deploy-process"]}'
+    stream_mock = _make_streaming_mock(["ok"])
+
+    with patch("litellm.acompletion", new=AsyncMock(side_effect=[select_response, stream_mock])) as mock_llm:
+        agent = QueryAgent(fs=fs, model="gemini/gemini-2.5-flash")
+        async for _ in agent.query([{"role": "user", "content": "q"}]):
+            pass
+
+    phase2_system = mock_llm.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "--- orphan ---" not in phase2_system
+    assert "--- deploy-process ---" in phase2_system
