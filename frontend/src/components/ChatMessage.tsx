@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChatMessage as ChatMessageType, Citation } from '../lib/types'
 import { MessageEditor } from './MessageEditor'
+import { Markdown } from './Markdown'
 
 interface Props {
   message: ChatMessageType
@@ -218,16 +219,14 @@ export function ChatMessage({ message, editable, onEditSave }: Props) {
           </span>
         ) : (
           <>
-            <p className="whitespace-pre-wrap break-words">
-              {message.content}
-              {message.citations.length > 0 && (
-                <span className="ml-1">
-                  {message.citations.map((citation, i) => (
-                    <CitationChip key={`${citation.slug}:${citation.start}-${citation.end}`} citation={citation} index={i + 1} />
-                  ))}
-                </span>
-              )}
-            </p>
+            <Markdown content={message.content} />
+            {message.citations.length > 0 && (
+              <p className="mt-1">
+                {message.citations.map((citation, i) => (
+                  <CitationChip key={`${citation.slug}:${citation.start}-${citation.end}`} citation={citation} index={i + 1} />
+                ))}
+              </p>
+            )}
           </>
         )}
       </div>

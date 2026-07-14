@@ -12,6 +12,13 @@ function slugToTitle(slug: string) {
     .join(' ')
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function formatUpdated(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return `${MONTHS[month - 1]} ${day}, ${year}`
+}
+
 function EmptyState() {
   return (
     <div className="max-w-[52ch] py-16 animate-[riseIn_0.5s_var(--ease-out)]">
@@ -72,8 +79,13 @@ export function WikiPage() {
                   className="font-serif text-[28px] leading-[1.15] tracking-[-0.02em] mt-2 mb-0 text-fg"
                   style={{ fontVariationSettings: '"opsz" 48', fontWeight: 500 }}
                 >
-                  {slugToTitle(slug)}
+                  {page?.frontmatter.title ?? slugToTitle(slug)}
                 </h1>
+                {page?.frontmatter.updated && (
+                  <p className="mt-1.5 text-[12.5px] text-fg-dim font-sans">
+                    Updated {formatUpdated(page.frontmatter.updated)}
+                  </p>
+                )}
               </div>
             </header>
           )}
@@ -84,7 +96,7 @@ export function WikiPage() {
           {error && <ErrorBanner error={error} />}
           {page && !error && (
             <div ref={contentRef}>
-              <WikiPageViewer content={page.content} />
+              <WikiPageViewer content={page.body} />
             </div>
           )}
         </article>
