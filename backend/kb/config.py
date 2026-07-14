@@ -5,7 +5,7 @@ from pathlib import Path
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    llm_model: str = "gemini/gemini-2.5-flash"
+    llm_model: str = "gemini/gemini-flash-latest"
     compile_model: str | None = None
     query_model: str | None = None
     knowledge_dir: Path                          # required — no default; set in .env

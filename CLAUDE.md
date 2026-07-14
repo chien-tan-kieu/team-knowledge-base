@@ -41,7 +41,7 @@ cd backend
 .venv/bin/pytest tests/test_query_agent.py::test_x   # single test
 ```
 
-The backend venv is seeded with `uv sync --extra dev` (produces `.venv/` with FastAPI, LiteLLM, pytest, etc.). Configuration comes from `backend/.env` — copy `backend/.env.example`, set `LLM_MODEL` (any LiteLLM-compatible model id; default `gemini/gemini-2.5-flash`, requires `GEMINI_API_KEY`) plus `KNOWLEDGE_DIR`. `COMPILE_MODEL` / `QUERY_MODEL` optionally override the model per task.
+The backend venv is seeded with `uv sync --extra dev` (produces `.venv/` with FastAPI, LiteLLM, pytest, etc.). Configuration comes from `backend/.env` — copy `backend/.env.example`, set `LLM_MODEL` (any LiteLLM-compatible model id; default `gemini/gemini-flash-latest`, requires `GEMINI_API_KEY`) plus `KNOWLEDGE_DIR`. `COMPILE_MODEL` / `QUERY_MODEL` optionally override the model per task.
 
 ## Architecture
 

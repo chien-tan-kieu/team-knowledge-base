@@ -30,7 +30,7 @@ def test_explicit_task_models_win():
 
 def test_default_model_is_gemini_flash():
     s = _make_settings()
-    assert s.llm_model == "gemini/gemini-2.5-flash"
+    assert s.llm_model == "gemini/gemini-flash-latest"
 
 
 def test_compile_max_retries_defaults_to_one():
