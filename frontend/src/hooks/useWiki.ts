@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react'
-import { ApiError, coerceApiError, getWikiPages, getWikiPage } from '../lib/api'
+import { ApiError, coerceApiError, getWikiPage } from '../lib/api'
 import type { WikiPage } from '../lib/types'
+import { useWikiPagesStore } from '../stores/wikiStore'
 
 export function useWikiPages() {
-  const [pages, setPages] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<ApiError | null>(null)
+  const pages = useWikiPagesStore(s => s.pages)
+  const loading = useWikiPagesStore(s => s.loading)
+  const error = useWikiPagesStore(s => s.error)
+  const fetchPages = useWikiPagesStore(s => s.fetchPages)
 
   useEffect(() => {
-    getWikiPages()
-      .then(p => {
-        setPages(p)
-        setError(null)
-      })
-      .catch(e => setError(coerceApiError(e)))
-      .finally(() => setLoading(false))
-  }, [])
+    fetchPages()
+  }, [fetchPages])
 
   return { pages, loading, error }
 }

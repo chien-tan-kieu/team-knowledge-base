@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useVaultSync } from '../useVaultSync'
+import { useWikiPagesStore } from '../../stores/wikiStore'
 
 beforeEach(() => vi.restoreAllMocks())
 
@@ -69,5 +70,25 @@ describe('useVaultSync', () => {
 
     expect(result.current.syncJobs).toEqual([])
     expect(result.current.syncing).toBe(false)
+  })
+
+  it('refreshes the wiki pages list once all sync jobs settle', async () => {
+    const fetchPagesSpy = vi.spyOn(useWikiPagesStore.getState(), 'fetchPages')
+      .mockResolvedValue(undefined)
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonRes({ jobs: [{ job_id: 'j1', filename: 'guide.md' }] }))
+      .mockResolvedValueOnce(jsonRes({ job_id: 'j1', filename: 'guide.md', status: 'done', error: null }))
+    )
+
+    const { result } = renderHook(() => useVaultSync())
+    act(() => { result.current.triggerSync() })
+
+    await act(async () => {})
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    vi.useRealTimers()
+    await waitFor(() => expect(result.current.syncing).toBe(false))
+
+    expect(fetchPagesSpy).toHaveBeenCalledTimes(1)
   })
 })

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { ApiError, coerceApiError, getIngestJob, ingestFile } from '../lib/api'
 import type { IngestJob } from '../lib/types'
 import { useNotificationsStore } from './notificationsStore'
+import { useWikiPagesStore } from './wikiStore'
 
 interface IngestState {
   job: IngestJob | null
@@ -60,6 +61,7 @@ export const useIngestStore = create<IngestState>((set, get) => ({
           if (updated.status === 'done') {
             stopPolling()
             notifyDone(updated)
+            useWikiPagesStore.getState().fetchPages()
           } else if (updated.status === 'failed') {
             stopPolling()
             notifyFailed(updated, updated.error)

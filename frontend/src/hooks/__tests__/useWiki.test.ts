@@ -1,9 +1,13 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useWikiPages, useWikiPage } from '../useWiki'
+import { useWikiPagesStore } from '../../stores/wikiStore'
 import { ApiError } from '../../lib/api'
 
-beforeEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  vi.restoreAllMocks()
+  useWikiPagesStore.setState({ pages: [], loading: true, error: null })
+})
 
 function jsonRes(body: unknown, ok = true, status = 200) {
   return {

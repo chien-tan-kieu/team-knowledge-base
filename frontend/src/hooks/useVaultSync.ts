@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { syncVault, getIngestJob } from '../lib/api'
 import type { SyncJob } from '../lib/types'
+import { useWikiPagesStore } from '../stores/wikiStore'
 
 const POLL_INTERVAL_MS = 1500
 
@@ -45,6 +46,7 @@ export function useVaultSync() {
       )
 
       await Promise.all(polls)
+      await useWikiPagesStore.getState().fetchPages()
     } finally {
       setSyncing(false)
     }

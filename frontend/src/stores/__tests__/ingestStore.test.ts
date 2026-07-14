@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useIngestStore } from '../ingestStore'
 import { useNotificationsStore } from '../notificationsStore'
+import { useWikiPagesStore } from '../wikiStore'
 import { ApiError } from '../../lib/api'
 
 function jsonRes(body: unknown, ok = true, status = 200) {
@@ -56,6 +57,38 @@ describe('ingestStore.upload', () => {
     expect(notifs[0].kind).toBe('ingest-success')
     expect(notifs[0].filename).toBe('a.md')
     expect(notifs[0].jobId).toBe('j1')
+  })
+
+  it('refreshes the wiki pages list when polling sees status=done', async () => {
+    const fetchPagesSpy = vi.spyOn(useWikiPagesStore.getState(), 'fetchPages')
+      .mockResolvedValue(undefined)
+    const responses = [
+      jsonRes({ job_id: 'j1', filename: 'a.md', status: 'pending', error: null }),
+      jsonRes({ job_id: 'j1', filename: 'a.md', status: 'done', error: null }),
+    ]
+    let i = 0
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? responses[responses.length - 1])))
+
+    await useIngestStore.getState().upload(new File(['x'], 'a.md'))
+    await vi.advanceTimersByTimeAsync(1500)
+
+    expect(fetchPagesSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not refresh the wiki pages list when polling sees status=failed', async () => {
+    const fetchPagesSpy = vi.spyOn(useWikiPagesStore.getState(), 'fetchPages')
+      .mockResolvedValue(undefined)
+    const responses = [
+      jsonRes({ job_id: 'j1', filename: 'a.md', status: 'pending', error: null }),
+      jsonRes({ job_id: 'j1', filename: 'a.md', status: 'failed', error: 'boom' }),
+    ]
+    let i = 0
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(responses[i++] ?? responses[responses.length - 1])))
+
+    await useIngestStore.getState().upload(new File(['x'], 'a.md'))
+    await vi.advanceTimersByTimeAsync(1500)
+
+    expect(fetchPagesSpy).not.toHaveBeenCalled()
   })
 
   it('pushes a failure notification when polling sees status=failed', async () => {
