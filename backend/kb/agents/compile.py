@@ -11,6 +11,7 @@ from kb.agents.compile_schema import (
     render_log_entry,
     render_page_md,
 )
+from kb.agents.structured import structured_output_kwargs
 from kb.errors import LLMUpstreamError
 from kb.wiki.frontmatter import dump as dump_frontmatter
 from kb.wiki.fs import WikiFS
@@ -66,30 +67,9 @@ BLOCK_HTML_RE = re.compile(
 
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
 
-OLLAMA_MODEL_PREFIXES = ("ollama/", "ollama_chat/")
-
 
 def _structured_output_kwargs(model: str, schema: dict) -> dict:
-    """Provider-appropriate kwargs for JSON-Schema-constrained output.
-
-    Ollama (via LiteLLM) doesn't reliably honor `response_format=json_schema`;
-    instead, pass the schema through Ollama's native `format` parameter
-    (extra_body), which reaches llama.cpp's grammar-constrained decoder.
-    Frontier providers (OpenAI, Anthropic, Gemini) use the standard
-    OpenAI-style `response_format`.
-    """
-    if model.startswith(OLLAMA_MODEL_PREFIXES):
-        return {"extra_body": {"format": schema}}
-    return {
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "compile_output",
-                "strict": True,
-                "schema": schema,
-            },
-        }
-    }
+    return structured_output_kwargs(model, schema, name="compile_output")
 
 
 def _parse_index(index_md: str) -> dict[str, str]:
