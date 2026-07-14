@@ -45,7 +45,7 @@ async def chat(
     request: ValidatedChatRequest,
     fs: WikiFS = Depends(get_wiki_fs),
 ):
-    agent = QueryAgent(fs=fs, model=settings.llm_model)
+    agent = QueryAgent(fs=fs, model=settings.effective_query_model)
 
     async def event_generator():
         try:

@@ -29,9 +29,10 @@ async def _run_compile(
         fs.save_raw(filename, raw_content)
         agent = CompileAgent(
             fs=fs,
-            model=settings.llm_model,
+            model=settings.effective_compile_model,
             min_coverage=settings.compile_min_coverage,
             require_verbatim=settings.compile_require_verbatim,
+            max_retries=settings.compile_max_retries,
         )
         await agent.compile(filename, raw_content)
         store.update_job(job_id, status=JobStatus.DONE)

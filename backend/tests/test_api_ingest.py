@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs, get_job_store
+from kb.api import ingest as ingest_module
 from kb.wiki.fs import WikiFS
 from kb.wiki.models import JobStatus
 from kb.jobs.store import InMemoryJobStore
@@ -147,3 +148,33 @@ def test_sync_vault_is_idempotent(client):
         resp2 = tc.post("/api/ingest/sync")
 
     assert resp2.json()["jobs"] == []
+
+
+@pytest.mark.asyncio
+async def test_run_compile_uses_effective_compile_model(
+    knowledge_dir, schema_dir, monkeypatch
+):
+    monkeypatch.setattr(ingest_module.settings, "llm_model", "gemini/gemini-2.5-flash")
+    monkeypatch.setattr(
+        ingest_module.settings, "compile_model", "anthropic/claude-haiku-4-5"
+    )
+    monkeypatch.setattr(ingest_module.settings, "compile_max_retries", 3)
+
+    captured = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        async def compile(self, filename, raw_content):
+            pass
+
+    monkeypatch.setattr(ingest_module, "CompileAgent", FakeAgent)
+
+    fs = WikiFS(knowledge_dir, schema_dir)
+    store = InMemoryJobStore()
+    job = store.create_job("doc.md")
+    await ingest_module._run_compile(job.job_id, "doc.md", "raw content", fs, store)
+
+    assert captured["model"] == "anthropic/claude-haiku-4-5"
+    assert captured["max_retries"] == 3
