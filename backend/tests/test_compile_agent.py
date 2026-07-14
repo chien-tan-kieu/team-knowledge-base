@@ -658,3 +658,88 @@ async def test_compile_rejects_when_llm_returns_block_html(knowledge_dir, schema
             await agent.compile("onboarding.md", "raw " * 100)
 
     assert fs.list_pages() == []
+
+
+RAW_WITH_CODE = "Intro text.\n\n```python\nprint('hi')\n```\n"
+CODE_BLOCK = "```python\nprint('hi')\n```"
+
+PAGE_WITHOUT_CODE = {
+    "pages": [
+        {
+            "slug": "retry-doc",
+            "title": "Retry Doc",
+            "summary": "A doc used to test retries.",
+            "related": [],
+            "body": BODY_250,
+        }
+    ]
+}
+
+PAGE_WITH_CODE = {
+    "pages": [
+        {
+            "slug": "retry-doc",
+            "title": "Retry Doc",
+            "summary": "A doc used to test retries.",
+            "related": [],
+            "body": BODY_250 + "\n\n" + CODE_BLOCK + "\n",
+        }
+    ]
+}
+
+
+@pytest.mark.asyncio
+async def test_compile_retries_with_feedback_then_succeeds(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    mock = AsyncMock(
+        side_effect=[_mock_response(PAGE_WITHOUT_CODE), _mock_response(PAGE_WITH_CODE)]
+    )
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("retry.md", RAW_WITH_CODE)
+
+    assert mock.call_count == 2
+    retry_messages = mock.call_args_list[1].kwargs["messages"]
+    assert [m["role"] for m in retry_messages] == ["user", "assistant", "user"]
+    assert retry_messages[1]["content"] == json.dumps(PAGE_WITHOUT_CODE)
+    assert "failed validation" in retry_messages[2]["content"]
+    assert "dropped a code block" in retry_messages[2]["content"]
+    # The corrected output was written.
+    assert _page_path(knowledge_dir, "retry-doc").exists()
+
+
+@pytest.mark.asyncio
+async def test_compile_raises_after_exhausting_retries(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    mock = AsyncMock(return_value=_mock_response(PAGE_WITHOUT_CODE))
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        with pytest.raises(LLMUpstreamError):
+            await agent.compile("retry.md", RAW_WITH_CODE)
+
+    assert mock.call_count == 2  # 1 attempt + 1 retry (default max_retries=1)
+    assert not _page_path(knowledge_dir, "retry-doc").exists()
+
+
+@pytest.mark.asyncio
+async def test_compile_max_retries_zero_disables_retry(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    mock = AsyncMock(return_value=_mock_response(PAGE_WITHOUT_CODE))
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0, max_retries=0)
+        with pytest.raises(LLMUpstreamError):
+            await agent.compile("retry.md", RAW_WITH_CODE)
+
+    assert mock.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_compile_transport_errors_are_not_retried(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    mock = AsyncMock(side_effect=RuntimeError("connection reset"))
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        with pytest.raises(LLMUpstreamError):
+            await agent.compile("retry.md", RAW_WITH_CODE)
+
+    assert mock.call_count == 1

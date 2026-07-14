@@ -67,6 +67,20 @@ BLOCK_HTML_RE = re.compile(
 
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
 
+RETRY_FEEDBACK_TEMPLATE = (
+    "Your previous output failed validation: {feedback} "
+    "Return the complete corrected output, following all rules in the "
+    "original instructions."
+)
+
+
+class CompileValidationError(Exception):
+    """LLM output failed a post-generation validation gate.
+
+    str(exc) doubles as the user-facing error message and as the corrective
+    feedback sent back to the model on retry.
+    """
+
 
 def _structured_output_kwargs(model: str, schema: dict) -> dict:
     return structured_output_kwargs(model, schema, name="compile_output")
@@ -121,11 +135,13 @@ class CompileAgent:
         model: str,
         min_coverage: float = 0.7,
         require_verbatim: bool = True,
+        max_retries: int = 1,
     ) -> None:
         self._fs = fs
         self._model = model
         self._min_coverage = min_coverage
         self._require_verbatim = require_verbatim
+        self._max_retries = max_retries
 
     async def compile(self, filename: str, raw_content: str) -> None:
         existing_summaries = _parse_index(self._fs.read_index())
@@ -144,10 +160,36 @@ class CompileAgent:
             min_coverage=self._min_coverage,
         )
 
+        messages: list[dict] = [{"role": "user", "content": prompt}]
+        attempts = 1 + self._max_retries
+        for attempt in range(1, attempts + 1):
+            raw_output = await self._request(messages)
+            try:
+                output = self._validate(raw_output, raw_content)
+                break
+            except CompileValidationError as exc:
+                if attempt >= attempts:
+                    raise LLMUpstreamError(str(exc)) from exc
+                logger.warning(
+                    "compile.retry",
+                    extra={"attempt": attempt, "reason": str(exc)},
+                )
+                messages = [
+                    *messages,
+                    {"role": "assistant", "content": raw_output},
+                    {
+                        "role": "user",
+                        "content": RETRY_FEEDBACK_TEMPLATE.format(feedback=str(exc)),
+                    },
+                ]
+
+        self._write(output, filename, existing_summaries)
+
+    async def _request(self, messages: list[dict]) -> str:
         try:
             response = await litellm.acompletion(
                 model=self._model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 **_structured_output_kwargs(
                     self._model, CompileOutput.model_json_schema()
                 ),
@@ -157,13 +199,14 @@ class CompileAgent:
             raise LLMUpstreamError(
                 "LLM request failed (network or upstream)."
             ) from exc
+        return response.choices[0].message.content
 
-        raw_output = response.choices[0].message.content
+    def _validate(self, raw_output: str, raw_content: str) -> CompileOutput:
         try:
             output = CompileOutput.model_validate_json(raw_output)
         except Exception as exc:
             logger.error("compile.schema_validation_failed")
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 "LLM output did not match the expected schema."
             ) from exc
 
@@ -171,7 +214,7 @@ class CompileAgent:
             self._assert_verbatim(output, raw_content)
         self._assert_no_block_html(output)
         self._assert_coverage(output, raw_content)
-        self._write(output, filename, existing_summaries)
+        return output
 
     def _assert_no_block_html(self, output: CompileOutput) -> None:
         for page in output.pages:
@@ -179,7 +222,7 @@ class CompileAgent:
                 logger.error(
                     "compile.block_html_present", extra={"slug": page.slug}
                 )
-                raise LLMUpstreamError(
+                raise CompileValidationError(
                     "LLM output contained raw HTML block tags; markdown expected."
                 )
 
@@ -193,7 +236,7 @@ class CompileAgent:
             logger.error(
                 "compile.verbatim_missing", extra={"missing_count": len(missing)}
             )
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 "LLM output dropped a code block or table from the source."
             )
 
@@ -208,7 +251,7 @@ class CompileAgent:
                 "compile.coverage_too_low",
                 extra={"ratio": ratio, "threshold": self._min_coverage},
             )
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 f"LLM output covered {ratio:.1%} of source "
                 f"(< {self._min_coverage:.0%} required); model likely over-summarized."
             )
