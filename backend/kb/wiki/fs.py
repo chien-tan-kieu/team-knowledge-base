@@ -3,6 +3,9 @@ from kb.wiki.models import WikiPage
 from kb.wiki.frontmatter import parse as parse_frontmatter
 
 
+INDEX_SEED = "# Index\n\n"
+
+
 class WikiFS:
     def __init__(self, knowledge_dir: Path, schema_dir: Path) -> None:
         self._raw    = knowledge_dir / "raw"
@@ -12,6 +15,12 @@ class WikiFS:
         self._raw.mkdir(parents=True, exist_ok=True)
         self._pages.mkdir(parents=True, exist_ok=True)
         # schema dir is app-owned, not auto-created by WikiFS
+        index_path = self._wiki / "index.md"
+        if not index_path.exists():
+            index_path.write_text(INDEX_SEED, encoding="utf-8")
+        log_path = self._wiki / "log.md"
+        if not log_path.exists():
+            log_path.write_text("", encoding="utf-8")
 
     def read_index(self) -> str:
         return (self._wiki / "index.md").read_text(encoding="utf-8")

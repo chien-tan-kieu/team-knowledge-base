@@ -117,3 +117,21 @@ def test_read_log_returns_empty_string_when_absent(knowledge_dir, schema_dir):
     fs = WikiFS(knowledge_dir, schema_dir)
     (knowledge_dir / "wiki" / "log.md").unlink()
     assert fs.read_log() == ""
+
+
+def test_init_creates_missing_index_and_log(tmp_path, schema_dir):
+    fs = WikiFS(tmp_path, schema_dir)
+    assert (tmp_path / "wiki" / "index.md").exists()
+    assert (tmp_path / "wiki" / "log.md").exists()
+    assert fs.read_index() == "# Index\n\n"
+    assert fs.read_log() == ""
+
+
+def test_init_preserves_existing_index_and_log(knowledge_dir, schema_dir):
+    (knowledge_dir / "wiki" / "index.md").write_text(
+        "# Index\n\n- [[foo]] — bar\n", encoding="utf-8"
+    )
+    (knowledge_dir / "wiki" / "log.md").write_text("## existing entry\n")
+    fs = WikiFS(knowledge_dir, schema_dir)
+    assert "foo" in fs.read_index()
+    assert "existing entry" in fs.read_log()
