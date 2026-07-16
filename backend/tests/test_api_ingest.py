@@ -110,6 +110,7 @@ def test_failed_ingest_keeps_raw_file(client):
 def test_deletion_failure_still_marks_job_done(client, monkeypatch):
     tc, store = client
     fs = tc.app.dependency_overrides[get_wiki_fs]()
+    knowledge_dir_path = fs._raw.parent
 
     def boom(filename):
         raise OSError("permission denied")
@@ -122,6 +123,7 @@ def test_deletion_failure_still_marks_job_done(client, monkeypatch):
     job_id = resp.json()["job_id"]
     job = store.get_job(job_id)
     assert job.status == JobStatus.DONE
+    assert (knowledge_dir_path / "raw" / "guide.md").exists()
 
 
 def test_sync_vault_creates_jobs_for_unprocessed_files(client):

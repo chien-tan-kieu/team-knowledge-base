@@ -43,6 +43,7 @@ async def _run_compile(
             logger.warning(
                 "ingest.delete_raw_failed",
                 extra={"job_id": job_id, "ingest_filename": filename},
+                exc_info=True,
             )
         store.update_job(job_id, status=JobStatus.DONE)
     except LLMUpstreamError as exc:
