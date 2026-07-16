@@ -53,6 +53,9 @@ class WikiFS:
     def read_raw(self, filename: str) -> str:
         return (self._raw / filename).read_text(encoding="utf-8")
 
+    def delete_raw(self, filename: str) -> None:
+        (self._raw / filename).unlink()
+
     def read_schema(self) -> str:
         return (self._schema / "SCHEMA.md").read_text(encoding="utf-8")
 

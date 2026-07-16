@@ -56,6 +56,19 @@ def test_save_and_read_raw(knowledge_dir, schema_dir):
     assert "Guide" in content
 
 
+def test_delete_raw_removes_file(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.save_raw("guide.md", "# Guide\n\nContent.")
+    fs.delete_raw("guide.md")
+    assert not (knowledge_dir / "raw" / "guide.md").exists()
+
+
+def test_delete_raw_missing_file_raises(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    with pytest.raises(FileNotFoundError):
+        fs.delete_raw("nonexistent.md")
+
+
 def test_write_index(knowledge_dir, schema_dir):
     fs = WikiFS(knowledge_dir, schema_dir)
     fs.write_index("# Index\n\n- [[topic-a]] — A topic\n")
