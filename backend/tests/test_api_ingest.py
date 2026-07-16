@@ -87,6 +87,43 @@ def test_get_failed_job_returns_500(client):
         assert "request_id" in body
 
 
+def test_successful_ingest_deletes_raw_file(client):
+    tc, store = client
+    knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock()
+        content = b"# Guide\n\nContent."
+        tc.post("/api/ingest", files={"file": ("guide.md", content, "text/markdown")})
+    assert not (knowledge_dir_path / "raw" / "guide.md").exists()
+
+
+def test_failed_ingest_keeps_raw_file(client):
+    tc, store = client
+    knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock(side_effect=RuntimeError("boom"))
+        content = b"# Guide\n\nContent."
+        tc.post("/api/ingest", files={"file": ("guide.md", content, "text/markdown")})
+    assert (knowledge_dir_path / "raw" / "guide.md").exists()
+
+
+def test_deletion_failure_still_marks_job_done(client, monkeypatch):
+    tc, store = client
+    fs = tc.app.dependency_overrides[get_wiki_fs]()
+
+    def boom(filename):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(fs, "delete_raw", boom)
+    with patch("kb.api.ingest.CompileAgent") as MockAgent:
+        MockAgent.return_value.compile = AsyncMock()
+        content = b"# Guide\n\nContent."
+        resp = tc.post("/api/ingest", files={"file": ("guide.md", content, "text/markdown")})
+    job_id = resp.json()["job_id"]
+    job = store.get_job(job_id)
+    assert job.status == JobStatus.DONE
+
+
 def test_sync_vault_creates_jobs_for_unprocessed_files(client):
     tc, store = client
     knowledge_dir_path = tc.app.dependency_overrides[get_wiki_fs]()._raw.parent

@@ -35,6 +35,15 @@ async def _run_compile(
             max_retries=settings.compile_max_retries,
         )
         await agent.compile(filename, raw_content)
+        try:
+            fs.delete_raw(filename)
+        except Exception:
+            # Cleanup failure isn't an ingest failure — the wiki content
+            # was already written successfully.
+            logger.warning(
+                "ingest.delete_raw_failed",
+                extra={"job_id": job_id, "ingest_filename": filename},
+            )
         store.update_job(job_id, status=JobStatus.DONE)
     except LLMUpstreamError as exc:
         # LLMUpstreamError carries a sanitized, user-facing message — forward it
