@@ -405,6 +405,10 @@ body.is-dragging aside[aria-label="Primary"] {
   margin-left: -12px;
   padding-left: 10px;
 }
+:where(html[data-theme="dark"]) .kb-highlight {
+  background-color: rgba(217, 119, 87, 0.16);
+  border-left-color: #d97757;
+}
 .kb-highlight.kb-highlight-fading {
   background-color: transparent;
 }
