@@ -57,19 +57,23 @@ A page is the human's when its frontmatter says `edited_by: human`. Humans set t
 
 ## Index Format (rendered in code)
 
-`wiki/index.md` is fully regenerated on every ingest from the union of existing index entries and new page summaries:
+`wiki/index.md` is fully regenerated on every ingest from the union of existing index entries and new page summaries, grouped by topic:
 
 ```
 # Knowledge Base Index
 
 This file is maintained by the CompileAgent. Do not edit manually.
 
-## Pages
+## <Topic>
 
 - [[slug-name]] — Summary string from frontmatter
+
+## Uncategorized
+
+- [[legacy-page]] — Summary string
 ```
 
-Slugs are sorted alphabetically. The bullet text is the `summary` frontmatter field of the current page (or the prior index entry if the page was not touched by this ingest).
+Topic headings are humanized topic slugs (`spec-tools` → `Spec Tools`), sorted alphabetically. Slugs sort alphabetically within each section. Pages whose index entry predates topics land under `## Uncategorized`, which always renders last and is omitted when empty. When parsing, the legacy heading `## Pages` (and any reserved or non-slug heading) is treated as "no topic" — a pre-topic index is valid input and needs no migration.
 
 ## Log Format (rendered in code)
 

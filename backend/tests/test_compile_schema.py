@@ -94,11 +94,36 @@ def test_render_page_md_edited_by_human():
     assert fm["edited_by"] == "human"
 
 
-def test_render_index_md_sorts_slugs():
-    md = render_index_md({"zebra": "last one", "apple": "first one"})
+def test_render_index_md_sorts_slugs_within_topic():
+    md = render_index_md({
+        "zebra": ("animals", "last one"),
+        "apple": ("animals", "first one"),
+    })
     assert md.index("[[apple]]") < md.index("[[zebra]]")
     assert "first one" in md
     assert "last one" in md
+
+
+def test_render_index_md_groups_by_topic_alphabetically():
+    md = render_index_md({
+        "bmad": ("spec-tools", "A spec-driven discovery tool."),
+        "speckit": ("spec-tools", "An execution-focused tool."),
+        "fluency-illusion": ("cognition", "A cognitive bias."),
+    })
+    assert "## Cognition" in md
+    assert "## Spec Tools" in md
+    assert md.index("## Cognition") < md.index("## Spec Tools")
+    assert md.index("## Spec Tools") < md.index("[[bmad]]")
+    assert "## Uncategorized" not in md
+
+
+def test_render_index_md_uncategorized_always_last():
+    md = render_index_md({
+        "aaa-legacy": (None, "Legacy page."),
+        "bmad": ("spec-tools", "A tool."),
+    })
+    assert md.index("## Spec Tools") < md.index("## Uncategorized")
+    assert md.index("## Uncategorized") < md.index("[[aaa-legacy]]")
 
 
 def test_render_log_entry_three_categories():

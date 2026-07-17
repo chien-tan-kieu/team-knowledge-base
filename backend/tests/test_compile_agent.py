@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from kb.agents.compile import BLOCK_HTML_RE, CompileAgent, _structured_output_kwargs
+from kb.agents.compile import BLOCK_HTML_RE, CompileAgent, _parse_index, _structured_output_kwargs
+from kb.agents.compile_schema import render_index_md
 from kb.errors import LLMUpstreamError
 from kb.wiki.frontmatter import dump as dump_frontmatter, parse as parse_frontmatter
 from kb.wiki.fs import WikiFS
@@ -804,3 +805,130 @@ async def test_compile_retries_on_reserved_topic(knowledge_dir, schema_dir):
     assert mock.call_count == 2
     fm, _ = parse_frontmatter(_page_path(knowledge_dir, "onboarding-guide").read_text())
     assert fm["topic"] == "guides"
+
+
+def test_parse_index_round_trips_grouped_index():
+    entries = {
+        "bmad": ("spec-tools", "A spec-driven tool."),
+        "fluency-illusion": ("cognition", "A cognitive bias."),
+        "old-page": (None, "Legacy."),
+    }
+    assert _parse_index(render_index_md(entries)) == entries
+
+
+def test_parse_index_legacy_flat_index_parses_as_topicless():
+    legacy = (
+        "# Knowledge Base Index\n\n"
+        "This file is maintained by the CompileAgent. Do not edit manually.\n\n"
+        "## Pages\n\n"
+        "- [[bmad]] — A tool.\n"
+        "- [[speckit]] — Another tool.\n"
+    )
+    assert _parse_index(legacy) == {
+        "bmad": (None, "A tool."),
+        "speckit": (None, "Another tool."),
+    }
+
+
+def test_parse_index_bullets_before_any_heading_are_topicless():
+    assert _parse_index("# Index\n\n- [[a]] — Something.\n") == {
+        "a": (None, "Something."),
+    }
+
+
+@pytest.mark.asyncio
+async def test_compile_new_topic_wins_on_llm_owned_update(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    prior = dump_frontmatter(
+        {
+            "slug": "onboarding-guide",
+            "title": "Onboarding Guide",
+            "summary": "Old summary.",
+            "topic": "old-topic",
+            "related": [],
+            "sources": ["older.md"],
+            "updated": date(2026, 4, 1),
+            "edited_by": "llm",
+        },
+        f"# Onboarding Guide\n\n{BODY_250}\n",
+    )
+    _page_path(knowledge_dir, "onboarding-guide").write_text(prior, encoding="utf-8")
+    fs.write_index(
+        render_index_md({"onboarding-guide": ("old-topic", "Old summary.")})
+    )
+
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    fm, _ = parse_frontmatter(
+        _page_path(knowledge_dir, "onboarding-guide").read_text()
+    )
+    assert fm["topic"] == "guides"
+    index = fs.read_index()
+    assert "## Guides" in index
+    assert "## Old Topic" not in index
+
+
+@pytest.mark.asyncio
+async def test_compile_preserves_topic_on_human_owned_page(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    prior = dump_frontmatter(
+        {
+            "slug": "onboarding-guide",
+            "title": "Onboarding Guide",
+            "summary": "Human summary.",
+            "topic": "ops",
+            "related": [],
+            "sources": ["older.md"],
+            "updated": date(2026, 4, 1),
+            "edited_by": "human",
+        },
+        f"# Onboarding Guide\n\n{BODY_250}\n",
+    )
+    _page_path(knowledge_dir, "onboarding-guide").write_text(prior, encoding="utf-8")
+    fs.write_index(
+        render_index_md({"onboarding-guide": ("ops", "Human summary.")})
+    )
+
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    fm, _ = parse_frontmatter(
+        _page_path(knowledge_dir, "onboarding-guide").read_text()
+    )
+    assert fm["topic"] == "ops"
+    assert fm["edited_by"] == "human"
+    index = fs.read_index()
+    assert "## Ops" in index
+    assert "## Guides" not in index
+
+
+@pytest.mark.asyncio
+async def test_compile_preserves_untouched_pages_topics_in_index(
+    knowledge_dir, schema_dir
+):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_index(
+        render_index_md({"other-page": ("cognition", "Another page entirely.")})
+    )
+
+    with patch(
+        "litellm.acompletion",
+        new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
+    ):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    index = fs.read_index()
+    assert "## Cognition" in index
+    assert "[[other-page]]" in index
+    assert "## Guides" in index
+    assert "[[onboarding-guide]]" in index

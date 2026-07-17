@@ -103,16 +103,30 @@ def dehumanize_topic(heading: str) -> str:
     return heading.strip().lower().replace(" ", "-")
 
 
-def render_index_md(slug_to_summary: dict[str, str]) -> str:
-    bullets = "\n".join(
-        f"- [[{slug}]] — {summary.splitlines()[0] if summary else ''}"
-        for slug, summary in sorted(slug_to_summary.items())
-    )
+def render_index_md(entries: dict[str, tuple[str | None, str]]) -> str:
+    """Render the grouped index. `entries` maps slug -> (topic, summary).
+
+    Topic sections sort alphabetically; topic-None pages land in a trailing
+    'Uncategorized' section, omitted when there are none.
+    """
+    grouped: dict[str | None, list[str]] = {}
+    for slug, (topic, summary) in sorted(entries.items()):
+        bullet = f"- [[{slug}]] — {summary.splitlines()[0] if summary else ''}"
+        grouped.setdefault(topic, []).append(bullet)
+
+    ordered_topics: list[str | None] = sorted(t for t in grouped if t is not None)
+    if None in grouped:
+        ordered_topics.append(None)
+
+    sections = []
+    for topic in ordered_topics:
+        heading = "Uncategorized" if topic is None else humanize_topic(topic)
+        sections.append(f"## {heading}\n\n" + "\n".join(grouped[topic]) + "\n")
+
     return (
         "# Knowledge Base Index\n\n"
         "This file is maintained by the CompileAgent. Do not edit manually.\n\n"
-        "## Pages\n\n"
-        f"{bullets}\n"
+        + "\n".join(sections)
     )
 
 

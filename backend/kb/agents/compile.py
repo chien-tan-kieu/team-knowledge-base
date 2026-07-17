@@ -5,8 +5,10 @@ from datetime import date
 import litellm
 
 from kb.agents.compile_schema import (
+    RESERVED_TOPICS,
     CompileOutput,
     WikiPageOutput,
+    dehumanize_topic,
     render_index_md,
     render_log_entry,
     render_page_md,
@@ -51,6 +53,8 @@ RAW DOCUMENT (filename: {filename}):
 
 
 INDEX_BULLET_RE = re.compile(r"^\s*-\s+\[\[([a-z0-9-]+)\]\]\s*—\s*(.*)$")
+INDEX_HEADING_RE = re.compile(r"^##\s+(.+?)\s*$")
+TOPIC_SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 FENCED_CODE_RE = re.compile(r"```[^\n]*\n.*?\n```", re.DOTALL)
 TABLE_RE = re.compile(
     r"(?:^\|[^\n]+\|\n)+^\|\s*:?-{3,}.*\|\n(?:^\|[^\n]+\|\n?)+",
@@ -86,12 +90,23 @@ def _structured_output_kwargs(model: str, schema: dict) -> dict:
     return structured_output_kwargs(model, schema, name="compile_output")
 
 
-def _parse_index(index_md: str) -> dict[str, str]:
-    out: dict[str, str] = {}
+def _parse_index(index_md: str) -> dict[str, tuple[str | None, str]]:
+    out: dict[str, tuple[str | None, str]] = {}
+    topic: str | None = None
     for line in index_md.splitlines():
+        heading = INDEX_HEADING_RE.match(line)
+        if heading:
+            candidate = dehumanize_topic(heading.group(1))
+            # Reserved names cover both the legacy "## Pages" heading and the
+            # "## Uncategorized" fallback bucket; non-slug headings are foreign.
+            if candidate in RESERVED_TOPICS or not TOPIC_SLUG_RE.match(candidate):
+                topic = None
+            else:
+                topic = candidate
+            continue
         m = INDEX_BULLET_RE.match(line)
         if m:
-            out[m.group(1)] = m.group(2).strip()
+            out[m.group(1)] = (topic, m.group(2).strip())
     return out
 
 
@@ -163,11 +178,11 @@ class CompileAgent:
         self._max_retries = max_retries
 
     async def compile(self, filename: str, raw_content: str) -> None:
-        existing_summaries = _parse_index(self._fs.read_index())
+        existing_entries = _parse_index(self._fs.read_index())
         existing_index = (
             "\n".join(
                 f"- {slug} — {summary}"
-                for slug, summary in sorted(existing_summaries.items())
+                for slug, (_topic, summary) in sorted(existing_entries.items())
             )
             or "(none yet)"
         )
@@ -202,7 +217,7 @@ class CompileAgent:
                     },
                 ]
 
-        self._write(output, filename, existing_summaries)
+        self._write(output, filename, existing_entries)
 
     async def _request(self, messages: list[dict]) -> str:
         try:
@@ -291,7 +306,7 @@ class CompileAgent:
         self,
         output: CompileOutput,
         filename: str,
-        existing_summaries: dict[str, str],
+        existing_entries: dict[str, tuple[str | None, str]],
     ) -> None:
         today = date.today()
         created: list[str] = []
@@ -306,17 +321,22 @@ class CompileAgent:
                 "proposed": proposed,
             }[branch].append(page.slug)
 
-        merged_summaries = {
-            **existing_summaries,
-            **{p.slug: p.summary for p in output.pages if p.slug not in proposed},
+        merged_entries = {
+            **existing_entries,
+            **{
+                p.slug: (p.topic, p.summary)
+                for p in output.pages
+                if p.slug not in proposed
+            },
         }
-        # For proposed-only pages, keep whatever summary was already in the index
-        # (human's summary wins). If none was indexed, fall back to the new summary.
+        # For proposed-only pages, keep whatever entry was already in the index
+        # (human's topic and summary win). If none was indexed, fall back to the
+        # new page's topic and summary.
         for p in output.pages:
-            if p.slug in proposed and p.slug not in merged_summaries:
-                merged_summaries[p.slug] = p.summary
+            if p.slug in proposed and p.slug not in merged_entries:
+                merged_entries[p.slug] = (p.topic, p.summary)
 
-        self._fs.write_index(render_index_md(merged_summaries))
+        self._fs.write_index(render_index_md(merged_entries))
         self._fs.append_log(
             render_log_entry(filename, created, updated, proposed, today)
         )
