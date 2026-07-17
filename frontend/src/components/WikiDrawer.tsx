@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useWikiPages } from '../hooks/useWiki'
+import { groupByTopic } from '../lib/topics'
 import { ErrorBanner } from './ErrorBanner'
 
 interface Props {
@@ -31,6 +32,8 @@ export function WikiDrawer({ open, onClose }: Props) {
     if (!q) return pages
     return pages.filter(p => p.slug.toLowerCase().includes(q))
   }, [pages, query])
+
+  const groups = useMemo(() => groupByTopic(filtered), [filtered])
 
   return (
     <>
@@ -106,42 +109,54 @@ export function WikiDrawer({ open, onClose }: Props) {
             </div>
           )}
 
-          <nav className="px-2 md:px-2.5">
-            {filtered.map(p => {
-              const active = p.slug === currentSlug
-              return (
-                <Link
-                  key={p.slug}
-                  to={`/wiki/${p.slug}`}
-                  onClick={handlePageClick}
-                  className={[
-                    'grid grid-cols-[8px_1fr] items-center gap-2 px-2 py-[5px] rounded-md',
-                    'font-mono text-[13px] tracking-tight truncate',
-                    active
-                      ? 'bg-sand text-fg'
-                      : 'text-fg-muted hover:bg-line hover:text-fg',
-                  ].join(' ')}
-                  style={active ? { boxShadow: 'var(--shadow-ring)' } : undefined}
+          <div className="pb-2">
+            {groups.map(group => (
+              <section key={group.topic ?? 'uncategorized'}>
+                <p
+                  data-testid="topic-heading"
+                  className="px-4 md:px-5 pt-3 pb-1 text-[10px] font-medium text-fg-dim uppercase tracking-[0.14em] font-sans"
                 >
-                  <span
-                    className="inline-block w-1 h-1 rounded-full"
-                    style={{
-                      background: active
-                        ? 'var(--color-accent)'
-                        : 'var(--color-line-strong)',
-                    }}
-                    aria-hidden
-                  />
-                  <span className="truncate">{p.slug}</span>
-                </Link>
-              )
-            })}
+                  {group.label}
+                </p>
+                <nav className="px-2 md:px-2.5">
+                  {group.pages.map(p => {
+                    const active = p.slug === currentSlug
+                    return (
+                      <Link
+                        key={p.slug}
+                        to={`/wiki/${p.slug}`}
+                        onClick={handlePageClick}
+                        className={[
+                          'grid grid-cols-[8px_1fr] items-center gap-2 px-2 py-[5px] rounded-md',
+                          'font-mono text-[13px] tracking-tight truncate',
+                          active
+                            ? 'bg-sand text-fg'
+                            : 'text-fg-muted hover:bg-line hover:text-fg',
+                        ].join(' ')}
+                        style={active ? { boxShadow: 'var(--shadow-ring)' } : undefined}
+                      >
+                        <span
+                          className="inline-block w-1 h-1 rounded-full"
+                          style={{
+                            background: active
+                              ? 'var(--color-accent)'
+                              : 'var(--color-line-strong)',
+                          }}
+                          aria-hidden
+                        />
+                        <span className="truncate">{p.slug}</span>
+                      </Link>
+                    )
+                  })}
+                </nav>
+              </section>
+            ))}
             {!loading && !error && filtered.length === 0 && (
-              <p className="px-2 py-3 text-xs text-fg-dim font-sans">
+              <p className="px-4 md:px-5 py-3 text-xs text-fg-dim font-sans">
                 {query ? 'No matches.' : 'No pages yet.'}
               </p>
             )}
-          </nav>
+          </div>
         </aside>
       </div>
     </>
