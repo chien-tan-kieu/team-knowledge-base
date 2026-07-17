@@ -2,6 +2,7 @@ export interface WikiPageFrontmatter {
   slug?: string
   title?: string
   summary?: string
+  topic?: string
   related?: string[]
   sources?: string[]
   updated?: string
@@ -13,6 +14,12 @@ export interface WikiPage {
   content: string
   frontmatter: WikiPageFrontmatter
   body: string
+}
+
+export interface WikiPageMeta {
+  slug: string
+  title: string | null
+  topic: string | null
 }
 
 export type JobStatus = 'pending' | 'running' | 'done' | 'failed'

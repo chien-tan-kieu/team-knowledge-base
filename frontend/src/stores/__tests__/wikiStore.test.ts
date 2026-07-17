@@ -11,6 +11,8 @@ function jsonRes(body: unknown, ok = true, status = 200) {
   } as unknown as Response
 }
 
+const meta = (slug: string) => ({ slug, title: null, topic: null })
+
 beforeEach(() => {
   vi.restoreAllMocks()
   useWikiPagesStore.setState({ pages: [], loading: true, error: null })
@@ -18,9 +20,9 @@ beforeEach(() => {
 
 describe('wikiStore.fetchPages', () => {
   it('loads pages on success', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonRes({ pages: ['a', 'b'] })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonRes({ pages: [meta('a'), meta('b')] })))
     await useWikiPagesStore.getState().fetchPages()
-    expect(useWikiPagesStore.getState().pages).toEqual(['a', 'b'])
+    expect(useWikiPagesStore.getState().pages).toEqual([meta('a'), meta('b')])
     expect(useWikiPagesStore.getState().loading).toBe(false)
     expect(useWikiPagesStore.getState().error).toBeNull()
   })
@@ -37,13 +39,13 @@ describe('wikiStore.fetchPages', () => {
   it('replaces the page list on repeated calls, reflecting newly ingested pages', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonRes({ pages: [] }))
-      .mockResolvedValueOnce(jsonRes({ pages: ['new-page'] }))
+      .mockResolvedValueOnce(jsonRes({ pages: [meta('new-page')] }))
     vi.stubGlobal('fetch', fetchMock)
 
     await useWikiPagesStore.getState().fetchPages()
     expect(useWikiPagesStore.getState().pages).toEqual([])
 
     await useWikiPagesStore.getState().fetchPages()
-    expect(useWikiPagesStore.getState().pages).toEqual(['new-page'])
+    expect(useWikiPagesStore.getState().pages).toEqual([meta('new-page')])
   })
 })

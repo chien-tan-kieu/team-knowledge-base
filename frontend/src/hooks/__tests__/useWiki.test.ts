@@ -18,12 +18,14 @@ function jsonRes(body: unknown, ok = true, status = 200) {
   } as unknown as Response
 }
 
+const meta = (slug: string) => ({ slug, title: null, topic: null })
+
 describe('useWikiPages', () => {
   it('loads pages on success', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonRes({ pages: ['a', 'b'] })))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonRes({ pages: [meta('a'), meta('b')] })))
     const { result } = renderHook(() => useWikiPages())
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(result.current.pages).toEqual(['a', 'b'])
+    expect(result.current.pages).toEqual([meta('a'), meta('b')])
     expect(result.current.error).toBeNull()
   })
 

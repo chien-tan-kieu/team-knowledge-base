@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { ApiError, coerceApiError, getWikiPages } from '../lib/api'
+import type { WikiPageMeta } from '../lib/types'
 
 interface WikiPagesState {
-  pages: string[]
+  pages: WikiPageMeta[]
   loading: boolean
   error: ApiError | null
   fetchPages: () => Promise<void>

@@ -5,7 +5,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from '../Sidebar'
 
 vi.mock('../../hooks/useWiki', () => ({
-  useWikiPages: () => ({ pages: ['page-one', 'page-two'], loading: false, error: null }),
+  useWikiPages: () => ({
+    pages: [
+      { slug: 'page-one', title: null, topic: null },
+      { slug: 'page-two', title: null, topic: null },
+    ],
+    loading: false,
+    error: null,
+  }),
 }))
 
 const fakeResize = {

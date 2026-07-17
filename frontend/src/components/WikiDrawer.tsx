@@ -29,7 +29,7 @@ export function WikiDrawer({ open, onClose }: Props) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return pages
-    return pages.filter(s => s.toLowerCase().includes(q))
+    return pages.filter(p => p.slug.toLowerCase().includes(q))
   }, [pages, query])
 
   return (
@@ -107,12 +107,12 @@ export function WikiDrawer({ open, onClose }: Props) {
           )}
 
           <nav className="px-2 md:px-2.5">
-            {filtered.map(s => {
-              const active = s === currentSlug
+            {filtered.map(p => {
+              const active = p.slug === currentSlug
               return (
                 <Link
-                  key={s}
-                  to={`/wiki/${s}`}
+                  key={p.slug}
+                  to={`/wiki/${p.slug}`}
                   onClick={handlePageClick}
                   className={[
                     'grid grid-cols-[8px_1fr] items-center gap-2 px-2 py-[5px] rounded-md',
@@ -132,7 +132,7 @@ export function WikiDrawer({ open, onClose }: Props) {
                     }}
                     aria-hidden
                   />
-                  <span className="truncate">{s}</span>
+                  <span className="truncate">{p.slug}</span>
                 </Link>
               )
             })}

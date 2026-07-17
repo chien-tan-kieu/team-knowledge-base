@@ -6,13 +6,21 @@ beforeEach(() => {
 })
 
 describe('getWikiPages', () => {
-  it('fetches page slugs from /api/wiki', async () => {
+  it('fetches page metadata from /api/wiki', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ pages: ['deploy-process', 'onboarding'] }),
+      json: async () => ({
+        pages: [
+          { slug: 'deploy-process', title: 'Deploy Process', topic: null },
+          { slug: 'bmad', title: 'BMAD', topic: 'spec-tools' },
+        ],
+      }),
     }))
     const pages = await getWikiPages()
-    expect(pages).toEqual(['deploy-process', 'onboarding'])
+    expect(pages).toEqual([
+      { slug: 'deploy-process', title: 'Deploy Process', topic: null },
+      { slug: 'bmad', title: 'BMAD', topic: 'spec-tools' },
+    ])
     expect(fetch).toHaveBeenCalledWith('/api/wiki', { credentials: 'include' })
   })
 })
