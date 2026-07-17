@@ -26,6 +26,7 @@ ONBOARDING_PAYLOAD = {
             "slug": "onboarding-guide",
             "title": "Onboarding Guide",
             "summary": "Step-by-step guide for new engineers joining the team.",
+            "topic": "guides",
             "related": [],
             "body": BODY_250,
         }
@@ -144,6 +145,7 @@ async def test_compile_overwrites_llm_page_and_merges_related(knowledge_dir, sch
                 "slug": "onboarding-guide",
                 "title": "Onboarding Guide",
                 "summary": "New summary.",
+                "topic": "guides",
                 "related": ["new-link"],  # LLM emits a different cross-link
                 "body": BODY_250,
             }
@@ -346,6 +348,7 @@ async def test_compile_rejects_invalid_slug(knowledge_dir, schema_dir):
                 "slug": "Foo.md",
                 "title": "Foo",
                 "summary": "x",
+                "topic": "guides",
                 "related": [],
                 "body": BODY_250,
             }
@@ -384,6 +387,7 @@ async def test_compile_rejects_short_body(knowledge_dir, schema_dir):
                 "slug": "x",
                 "title": "X",
                 "summary": "s",
+                "topic": "guides",
                 "related": [],
                 "body": "too short",
             }
@@ -423,6 +427,7 @@ async def test_compile_rejects_missing_code_block(knowledge_dir, schema_dir):
                 "slug": "hello",
                 "title": "Hello",
                 "summary": "Greets.",
+                "topic": "guides",
                 "related": [],
                 "body": "A" * 400,
             }
@@ -447,6 +452,7 @@ async def test_compile_accepts_when_code_block_preserved(knowledge_dir, schema_d
                 "slug": "hello",
                 "title": "Hello",
                 "summary": "Greets.",
+                "topic": "guides",
                 "related": [],
                 "body": f"A preamble. {code_block}\n\nMore body. " + ("z" * 300),
             }
@@ -476,6 +482,7 @@ async def test_compile_rejects_missing_table(knowledge_dir, schema_dir):
                 "slug": "tabular",
                 "title": "Tabular",
                 "summary": "Has a table.",
+                "topic": "guides",
                 "related": [],
                 "body": "A" * 400,
             }
@@ -505,6 +512,7 @@ async def test_compile_accepts_when_table_preserved(knowledge_dir, schema_dir):
                 "slug": "tabular",
                 "title": "Tabular",
                 "summary": "Has a table.",
+                "topic": "guides",
                 "related": [],
                 "body": f"A preamble.\n\n{table}\nMore body. " + ("z" * 300),
             }
@@ -599,6 +607,7 @@ async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir, 
                 "slug": "onboarding-guide",
                 "title": "Onboarding Guide",
                 "summary": "Step-by-step guide for new engineers joining the team.",
+                "topic": "guides",
                 "related": ["/docs/anthropic/modes-chat"],
                 "body": BODY_250,
             }
@@ -627,6 +636,7 @@ async def test_compile_unescapes_literal_newlines_in_body(knowledge_dir, schema_
     raw_output = (
         r'{"pages": [{"slug": "onboarding-guide", "title": "Onboarding Guide", '
         r'"summary": "Step-by-step guide for new engineers joining the team.", '
+        r'"topic": "guides", '
         r'"related": [], '
         r'"body": "First paragraph padded with enough text to be realistic.'
         r'\\nSecond paragraph after what should be a real line break, '
@@ -673,6 +683,7 @@ async def test_compile_rejects_when_llm_returns_block_html(knowledge_dir, schema
                 "slug": "onboarding-guide",
                 "title": "Onboarding Guide",
                 "summary": "Step-by-step guide for new engineers joining the team.",
+                "topic": "guides",
                 "related": [],
                 "body": html_body,
             }
@@ -699,6 +710,7 @@ PAGE_WITHOUT_CODE = {
             "slug": "retry-doc",
             "title": "Retry Doc",
             "summary": "A doc used to test retries.",
+            "topic": "guides",
             "related": [],
             "body": BODY_250,
         }
@@ -711,6 +723,7 @@ PAGE_WITH_CODE = {
             "slug": "retry-doc",
             "title": "Retry Doc",
             "summary": "A doc used to test retries.",
+            "topic": "guides",
             "related": [],
             "body": BODY_250 + "\n\n" + CODE_BLOCK + "\n",
         }
@@ -773,3 +786,21 @@ async def test_compile_transport_errors_are_not_retried(knowledge_dir, schema_di
             await agent.compile("retry.md", RAW_WITH_CODE)
 
     assert mock.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_compile_retries_on_reserved_topic(knowledge_dir, schema_dir):
+    bad_payload = {
+        "pages": [{**ONBOARDING_PAYLOAD["pages"][0], "topic": "uncategorized"}]
+    }
+    mock = AsyncMock(
+        side_effect=[_mock_response(bad_payload), _mock_response(ONBOARDING_PAYLOAD)]
+    )
+    with patch("litellm.acompletion", new=mock):
+        fs = WikiFS(knowledge_dir, schema_dir)
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    assert mock.call_count == 2
+    fm, _ = parse_frontmatter(_page_path(knowledge_dir, "onboarding-guide").read_text())
+    assert fm["topic"] == "guides"

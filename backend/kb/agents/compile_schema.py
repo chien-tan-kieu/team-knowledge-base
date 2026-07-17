@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from kb.wiki.frontmatter import dump as dump_frontmatter
 
@@ -11,6 +11,8 @@ SlugStr = Annotated[
     StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$"),
 ]
 
+RESERVED_TOPICS = frozenset({"uncategorized", "pages"})
+
 
 class WikiPageOutput(BaseModel):
     slug: str = Field(
@@ -19,6 +21,12 @@ class WikiPageOutput(BaseModel):
     )
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1, description="One paragraph, used by the index.")
+    topic: SlugStr = Field(
+        description=(
+            "Broad subject area this page belongs to, slug format "
+            "(e.g. 'spec-tools'). Reuse an existing topic when the page fits one."
+        ),
+    )
     related: list[SlugStr] = Field(
         description="Slugs of related pages. Empty list if none."
     )
@@ -31,6 +39,13 @@ class WikiPageOutput(BaseModel):
             "post-validation by CompileAgent, not by this schema)."
         ),
     )
+
+    @field_validator("topic")
+    @classmethod
+    def _reject_reserved_topics(cls, value: str) -> str:
+        if value in RESERVED_TOPICS:
+            raise ValueError(f"topic '{value}' is reserved; choose another")
+        return value
 
 
 class CompileOutput(BaseModel):
@@ -64,6 +79,7 @@ def render_page_md(
         "slug": page.slug,
         "title": page.title,
         "summary": page.summary,
+        "topic": page.topic,
         "related": list(page.related),
         "sources": list(sources),
         "updated": updated,
@@ -75,6 +91,16 @@ def render_page_md(
         links = "\n".join(f"- [[{slug}]]" for slug in page.related)
         body += f"\n## See also\n\n{links}\n"
     return dump_frontmatter(frontmatter, body)
+
+
+def humanize_topic(topic: str) -> str:
+    """'spec-tools' -> 'Spec Tools'. Lossless round trip for slug-format strings."""
+    return " ".join(word.capitalize() for word in topic.split("-"))
+
+
+def dehumanize_topic(heading: str) -> str:
+    """'Spec Tools' -> 'spec-tools'. Inverse of humanize_topic."""
+    return heading.strip().lower().replace(" ", "-")
 
 
 def render_index_md(slug_to_summary: dict[str, str]) -> str:

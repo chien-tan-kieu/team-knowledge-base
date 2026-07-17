@@ -11,6 +11,7 @@ Every wiki page in `wiki/pages/` has YAML frontmatter followed by a free-form Ma
 slug: <slug>
 title: <Page Title>
 summary: One-paragraph synopsis used by the index.
+topic: <topic-slug>
 related: [other-slug, another-slug]
 sources: [raw-filename-1.md, raw-filename-2.md]
 updated: YYYY-MM-DD
@@ -29,6 +30,7 @@ Frontmatter fields:
 - `slug` — lowercase, hyphen-separated. Regex `^[a-z0-9]+(-[a-z0-9]+)*$`. Matches the filename stem.
 - `title` — human-readable. Rendered as the body's first `#` heading.
 - `summary` — single paragraph, used verbatim as the index bullet.
+- `topic` — broad subject area, slug format (regex `^[a-z0-9]+(-[a-z0-9]+)*$`), humanized only for display (`spec-tools` → `Spec Tools`). Groups pages in the index and the `/wiki` list. The names `uncategorized` and `pages` are reserved and rejected by validation.
 - `related` — list of other slugs. Empty list if none.
 - `sources` — list of raw filenames inside `knowledge/raw/`. Grows on re-ingest.
 - `updated` — ISO date (`YYYY-MM-DD`). Advances on every compiler write.
