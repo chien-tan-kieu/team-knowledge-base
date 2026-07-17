@@ -29,6 +29,7 @@ Each page has:
 - slug: lowercase, hyphen-separated, matches `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - title: human-readable.
 - summary: one paragraph synopsis (used as the index bullet).
+- topic: the broad subject area this page belongs to. Slug format, matches `^[a-z0-9]+(-[a-z0-9]+)*$` (e.g. `spec-tools`). Never use `uncategorized` or `pages` — both are reserved.
 - related: slugs of cross-linked pages; empty list if none. Each entry must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - body: free-form Markdown, at least 200 characters. Include whatever subheadings, lists, tables, and code blocks fit the concept.
 
@@ -46,6 +47,9 @@ Rephrase prose where it helps clarity, but preserve numeric facts, named entitie
 
 EXISTING PAGES (slug — summary), for slug consistency and cross-linking only:
 {existing_index}
+
+EXISTING TOPICS. Reuse an existing topic when the page fits one; create a new topic only if none fit:
+{existing_topics}
 
 RAW DOCUMENT (filename: {filename}):
 {raw_content}
@@ -187,8 +191,14 @@ class CompileAgent:
             or "(none yet)"
         )
 
+        topics = sorted(
+            {topic for topic, _summary in existing_entries.values() if topic is not None}
+        )
+        existing_topics = "\n".join(f"- {t}" for t in topics) or "(none yet)"
+
         prompt = COMPILE_PROMPT.format(
             existing_index=existing_index,
+            existing_topics=existing_topics,
             filename=filename,
             raw_content=raw_content,
             min_coverage=self._min_coverage,

@@ -932,3 +932,37 @@ async def test_compile_preserves_untouched_pages_topics_in_index(
     assert "[[other-page]]" in index
     assert "## Guides" in index
     assert "[[onboarding-guide]]" in index
+
+
+@pytest.mark.asyncio
+async def test_compile_prompt_lists_existing_topics(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_index(render_index_md({
+        "bmad": ("spec-tools", "A tool."),
+        "fluency-illusion": ("cognition", "A bias."),
+        "old-page": (None, "Legacy — must not appear as a topic."),
+    }))
+    mock = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    prompt = mock.call_args.kwargs["messages"][0]["content"]
+    assert "EXISTING TOPICS" in prompt
+    assert "- cognition" in prompt
+    assert "- spec-tools" in prompt
+    assert "Reuse an existing topic" in prompt
+
+
+@pytest.mark.asyncio
+async def test_compile_prompt_topics_show_none_yet_when_empty(
+    knowledge_dir, schema_dir
+):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    mock = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
+    with patch("litellm.acompletion", new=mock):
+        agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
+        await agent.compile("onboarding.md", "raw " * 100)
+
+    prompt = mock.call_args.kwargs["messages"][0]["content"]
+    assert "create a new topic only if none fit:\n(none yet)" in prompt
