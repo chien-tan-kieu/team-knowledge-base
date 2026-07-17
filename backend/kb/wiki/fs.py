@@ -1,9 +1,11 @@
+import re
 from pathlib import Path
 from kb.wiki.models import WikiPage
 from kb.wiki.frontmatter import parse as parse_frontmatter
 
 
 INDEX_SEED = "# Index\n\n"
+_SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 class WikiFS:
@@ -41,6 +43,28 @@ class WikiFS:
 
     def list_pages(self) -> list[str]:
         return sorted(p.stem for p in self._pages.glob("*.md"))
+
+    def list_page_meta(self) -> list[dict]:
+        """Slug/title/topic for every page. Missing or invalid frontmatter
+        degrades to None values rather than failing the whole listing."""
+        metas: list[dict] = []
+        for path in sorted(self._pages.glob("*.md")):
+            try:
+                frontmatter, _ = parse_frontmatter(path.read_text(encoding="utf-8"))
+            except ValueError:
+                frontmatter = {}
+            title = frontmatter.get("title")
+            topic = frontmatter.get("topic")
+            metas.append({
+                "slug": path.stem,
+                "title": title if isinstance(title, str) and title else None,
+                "topic": (
+                    topic
+                    if isinstance(topic, str) and _SLUG_RE.match(topic)
+                    else None
+                ),
+            })
+        return metas
 
     def append_log(self, entry: str) -> None:
         log_path = self._wiki / "log.md"

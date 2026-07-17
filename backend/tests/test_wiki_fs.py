@@ -148,3 +148,51 @@ def test_init_preserves_existing_index_and_log(knowledge_dir, schema_dir):
     fs = WikiFS(knowledge_dir, schema_dir)
     assert "foo" in fs.read_index()
     assert "existing entry" in fs.read_log()
+
+
+def test_list_page_meta_with_topic(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "bmad",
+        "---\nslug: bmad\ntitle: BMAD\ntopic: spec-tools\n---\n# BMAD\n\nBody.\n",
+    )
+    assert fs.list_page_meta() == [
+        {"slug": "bmad", "title": "BMAD", "topic": "spec-tools"}
+    ]
+
+
+def test_list_page_meta_without_topic(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "old-page",
+        "---\nslug: old-page\ntitle: Old Page\n---\n# Old Page\n\nBody.\n",
+    )
+    assert fs.list_page_meta() == [
+        {"slug": "old-page", "title": "Old Page", "topic": None}
+    ]
+
+
+def test_list_page_meta_tolerates_invalid_frontmatter(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page("broken", "# No frontmatter here\n\nJust a body.\n")
+    assert fs.list_page_meta() == [
+        {"slug": "broken", "title": None, "topic": None}
+    ]
+
+
+def test_list_page_meta_rejects_non_slug_topic(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page(
+        "weird",
+        "---\nslug: weird\ntitle: Weird\ntopic: Not A Slug\n---\nBody.\n",
+    )
+    assert fs.list_page_meta() == [
+        {"slug": "weird", "title": "Weird", "topic": None}
+    ]
+
+
+def test_list_page_meta_sorted_by_slug(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir)
+    fs.write_page("zeta", "---\nslug: zeta\ntitle: Z\n---\nBody.\n")
+    fs.write_page("alpha", "---\nslug: alpha\ntitle: A\n---\nBody.\n")
+    assert [m["slug"] for m in fs.list_page_meta()] == ["alpha", "zeta"]
