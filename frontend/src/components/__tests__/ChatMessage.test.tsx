@@ -27,6 +27,17 @@ describe('ChatMessage', () => {
     expect(screen.getByText(/make deploy/)).toBeInTheDocument()
   })
 
+  it('renders markdown formatting in assistant messages instead of raw syntax', () => {
+    const msg: ChatMessageType = {
+      id: '3', role: 'assistant', content: '### Heading\n\nSome **bold** text.', citations: []
+    }
+    const { container } = renderInRouter(<ChatMessage message={msg} />)
+    expect(container.querySelector('h3')?.textContent).toBe('Heading')
+    expect(container.querySelector('strong')?.textContent).toBe('bold')
+    expect(container.textContent).not.toContain('###')
+    expect(container.textContent).not.toContain('**')
+  })
+
   it('renders citation numbers and sources section for assistant messages', () => {
     renderInRouter(<ChatMessage message={assistantMsg} />)
     expect(screen.getByText('Sources')).toBeInTheDocument()

@@ -1,4 +1,4 @@
-import type { WikiPage, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
+import type { WikiPage, WikiPageMeta, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
 
 export class ApiError extends Error {
   code: string
@@ -54,8 +54,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export async function getWikiPages(): Promise<string[]> {
-  const data = await fetchJson<{ pages: string[] }>('/api/wiki')
+export async function getWikiPages(): Promise<WikiPageMeta[]> {
+  const data = await fetchJson<{ pages: WikiPageMeta[] }>('/api/wiki')
   return data.pages
 }
 
@@ -121,4 +121,8 @@ export function resetSessionPromise(): void {
 export function coerceApiError(e: unknown, fallbackMessage: string = 'Request failed.'): ApiError {
   if (e instanceof ApiError) return e
   return new ApiError({ code: 'INTERNAL_ERROR', message: fallbackMessage, requestId: null, status: 0 })
+}
+
+export async function syncVault(): Promise<{ jobs: { job_id: string; filename: string }[] }> {
+  return fetchJson('/api/ingest/sync', { method: 'POST' })
 }

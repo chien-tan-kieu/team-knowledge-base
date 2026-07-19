@@ -5,12 +5,15 @@ from datetime import date
 import litellm
 
 from kb.agents.compile_schema import (
+    RESERVED_TOPICS,
     CompileOutput,
     WikiPageOutput,
+    dehumanize_topic,
     render_index_md,
     render_log_entry,
     render_page_md,
 )
+from kb.agents.structured import structured_output_kwargs
 from kb.errors import LLMUpstreamError
 from kb.wiki.frontmatter import dump as dump_frontmatter
 from kb.wiki.fs import WikiFS
@@ -26,6 +29,7 @@ Each page has:
 - slug: lowercase, hyphen-separated, matches `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - title: human-readable.
 - summary: one paragraph synopsis (used as the index bullet).
+- topic: the broad subject area this page belongs to. Slug format, matches `^[a-z0-9]+(-[a-z0-9]+)*$` (e.g. `spec-tools`). Never use `uncategorized` or `pages` — both are reserved.
 - related: slugs of cross-linked pages; empty list if none. Each entry must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - body: free-form Markdown, at least 200 characters. Include whatever subheadings, lists, tables, and code blocks fit the concept.
 
@@ -44,12 +48,17 @@ Rephrase prose where it helps clarity, but preserve numeric facts, named entitie
 EXISTING PAGES (slug — summary), for slug consistency and cross-linking only:
 {existing_index}
 
+EXISTING TOPICS. Reuse an existing topic when the page fits one; create a new topic only if none fit:
+{existing_topics}
+
 RAW DOCUMENT (filename: {filename}):
 {raw_content}
 """
 
 
 INDEX_BULLET_RE = re.compile(r"^\s*-\s+\[\[([a-z0-9-]+)\]\]\s*—\s*(.*)$")
+INDEX_HEADING_RE = re.compile(r"^##\s+(.+?)\s*$")
+TOPIC_SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 FENCED_CODE_RE = re.compile(r"```[^\n]*\n.*?\n```", re.DOTALL)
 TABLE_RE = re.compile(
     r"(?:^\|[^\n]+\|\n)+^\|\s*:?-{3,}.*\|\n(?:^\|[^\n]+\|\n?)+",
@@ -66,43 +75,66 @@ BLOCK_HTML_RE = re.compile(
 
 PROPOSED_BLOCK_PREFIX = "## Proposed updates (from "
 
-OLLAMA_MODEL_PREFIXES = ("ollama/", "ollama_chat/")
+RETRY_FEEDBACK_TEMPLATE = (
+    "Your previous output failed validation: {feedback} "
+    "Return the complete corrected output, following all rules in the "
+    "original instructions."
+)
+
+
+class CompileValidationError(Exception):
+    """LLM output failed a post-generation validation gate.
+
+    str(exc) doubles as the user-facing error message and as the corrective
+    feedback sent back to the model on retry.
+    """
 
 
 def _structured_output_kwargs(model: str, schema: dict) -> dict:
-    """Provider-appropriate kwargs for JSON-Schema-constrained output.
-
-    Ollama (via LiteLLM) doesn't reliably honor `response_format=json_schema`;
-    instead, pass the schema through Ollama's native `format` parameter
-    (extra_body), which reaches llama.cpp's grammar-constrained decoder.
-    Frontier providers (OpenAI, Anthropic, Gemini) use the standard
-    OpenAI-style `response_format`.
-    """
-    if model.startswith(OLLAMA_MODEL_PREFIXES):
-        return {"extra_body": {"format": schema}}
-    return {
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "compile_output",
-                "strict": True,
-                "schema": schema,
-            },
-        }
-    }
+    return structured_output_kwargs(model, schema, name="compile_output")
 
 
-def _parse_index(index_md: str) -> dict[str, str]:
-    out: dict[str, str] = {}
+def _parse_index(index_md: str) -> dict[str, tuple[str | None, str]]:
+    out: dict[str, tuple[str | None, str]] = {}
+    topic: str | None = None
     for line in index_md.splitlines():
+        heading = INDEX_HEADING_RE.match(line)
+        if heading:
+            candidate = dehumanize_topic(heading.group(1))
+            # Reserved names cover both the legacy "## Pages" heading and the
+            # "## Uncategorized" fallback bucket; non-slug headings are foreign.
+            if candidate in RESERVED_TOPICS or not TOPIC_SLUG_RE.match(candidate):
+                topic = None
+            else:
+                topic = candidate
+            continue
         m = INDEX_BULLET_RE.match(line)
         if m:
-            out[m.group(1)] = m.group(2).strip()
+            out[m.group(1)] = (topic, m.group(2).strip())
     return out
 
 
 def _extract_required_blocks(raw: str) -> list[str]:
     return FENCED_CODE_RE.findall(raw) + TABLE_RE.findall(raw)
+
+
+def _unescape_literal_newlines(text: str) -> str:
+    """Fix LLMs that double-escape newlines in structured JSON output.
+
+    When this happens, a literal `\\n` (backslash + n) survives JSON parsing
+    as two-character text instead of becoming a real line break. Fenced code
+    blocks are left untouched since their content must stay verbatim.
+    """
+    if "\\n" not in text:
+        return text
+    parts = []
+    last_end = 0
+    for match in FENCED_CODE_RE.finditer(text):
+        parts.append(text[last_end:match.start()].replace("\\n", "\n"))
+        parts.append(match.group(0))
+        last_end = match.end()
+    parts.append(text[last_end:].replace("\\n", "\n"))
+    return "".join(parts)
 
 
 def _merge_unique(existing: list[str], new: list[str]) -> list[str]:
@@ -141,33 +173,67 @@ class CompileAgent:
         model: str,
         min_coverage: float = 0.7,
         require_verbatim: bool = True,
+        max_retries: int = 1,
     ) -> None:
         self._fs = fs
         self._model = model
         self._min_coverage = min_coverage
         self._require_verbatim = require_verbatim
+        self._max_retries = max_retries
 
     async def compile(self, filename: str, raw_content: str) -> None:
-        existing_summaries = _parse_index(self._fs.read_index())
+        existing_entries = _parse_index(self._fs.read_index())
         existing_index = (
             "\n".join(
                 f"- {slug} — {summary}"
-                for slug, summary in sorted(existing_summaries.items())
+                for slug, (_topic, summary) in sorted(existing_entries.items())
             )
             or "(none yet)"
         )
 
+        topics = sorted(
+            {topic for topic, _summary in existing_entries.values() if topic is not None}
+        )
+        existing_topics = "\n".join(f"- {t}" for t in topics) or "(none yet)"
+
         prompt = COMPILE_PROMPT.format(
             existing_index=existing_index,
+            existing_topics=existing_topics,
             filename=filename,
             raw_content=raw_content,
             min_coverage=self._min_coverage,
         )
 
+        messages: list[dict] = [{"role": "user", "content": prompt}]
+        attempts = 1 + self._max_retries
+        for attempt in range(1, attempts + 1):
+            raw_output = await self._request(messages)
+            try:
+                output = self._validate(raw_output, raw_content)
+                break
+            except CompileValidationError as exc:
+                if attempt >= attempts:
+                    raise LLMUpstreamError(str(exc)) from exc
+                logger.warning(
+                    "compile.retry",
+                    extra={"attempt": attempt, "reason": str(exc)},
+                )
+                messages = [
+                    *messages,
+                    {"role": "assistant", "content": raw_output},
+                    {
+                        "role": "user",
+                        "content": RETRY_FEEDBACK_TEMPLATE.format(feedback=str(exc)),
+                    },
+                ]
+
+        self._write(output, filename, existing_entries)
+
+    async def _request(self, messages: list[dict]) -> str:
         try:
             response = await litellm.acompletion(
                 model=self._model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 **_structured_output_kwargs(
                     self._model, CompileOutput.model_json_schema()
                 ),
@@ -177,21 +243,34 @@ class CompileAgent:
             raise LLMUpstreamError(
                 "LLM request failed (network or upstream)."
             ) from exc
+        return response.choices[0].message.content
 
-        raw_output = response.choices[0].message.content
+    def _validate(self, raw_output: str, raw_content: str) -> CompileOutput:
         try:
             output = CompileOutput.model_validate_json(raw_output)
         except Exception as exc:
             logger.error("compile.schema_validation_failed")
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 "LLM output did not match the expected schema."
             ) from exc
+
+        output = output.model_copy(
+            update={
+                "pages": [
+                    page.model_copy(update={
+                        "body": _unescape_literal_newlines(page.body),
+                        "summary": _unescape_literal_newlines(page.summary),
+                    })
+                    for page in output.pages
+                ]
+            }
+        )
 
         if self._require_verbatim:
             self._assert_verbatim(output, raw_content)
         self._assert_no_block_html(output)
         self._assert_coverage(output, raw_content)
-        self._write(output, filename, existing_summaries)
+        return output
 
     def _assert_no_block_html(self, output: CompileOutput) -> None:
         for page in output.pages:
@@ -199,7 +278,7 @@ class CompileAgent:
                 logger.error(
                     "compile.block_html_present", extra={"slug": page.slug}
                 )
-                raise LLMUpstreamError(
+                raise CompileValidationError(
                     "LLM output contained raw HTML block tags; markdown expected."
                 )
 
@@ -213,7 +292,7 @@ class CompileAgent:
             logger.error(
                 "compile.verbatim_missing", extra={"missing_count": len(missing)}
             )
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 "LLM output dropped a code block or table from the source."
             )
 
@@ -228,7 +307,7 @@ class CompileAgent:
                 "compile.coverage_too_low",
                 extra={"ratio": ratio, "threshold": self._min_coverage},
             )
-            raise LLMUpstreamError(
+            raise CompileValidationError(
                 f"LLM output covered {ratio:.1%} of source "
                 f"(< {self._min_coverage:.0%} required); model likely over-summarized."
             )
@@ -237,7 +316,7 @@ class CompileAgent:
         self,
         output: CompileOutput,
         filename: str,
-        existing_summaries: dict[str, str],
+        existing_entries: dict[str, tuple[str | None, str]],
     ) -> None:
         today = date.today()
         created: list[str] = []
@@ -252,17 +331,22 @@ class CompileAgent:
                 "proposed": proposed,
             }[branch].append(page.slug)
 
-        merged_summaries = {
-            **existing_summaries,
-            **{p.slug: p.summary for p in output.pages if p.slug not in proposed},
+        merged_entries = {
+            **existing_entries,
+            **{
+                p.slug: (p.topic, p.summary)
+                for p in output.pages
+                if p.slug not in proposed
+            },
         }
-        # For proposed-only pages, keep whatever summary was already in the index
-        # (human's summary wins). If none was indexed, fall back to the new summary.
+        # For proposed-only pages, keep whatever entry was already in the index
+        # (human's topic and summary win). If none was indexed, fall back to the
+        # new page's topic and summary.
         for p in output.pages:
-            if p.slug in proposed and p.slug not in merged_summaries:
-                merged_summaries[p.slug] = p.summary
+            if p.slug in proposed and p.slug not in merged_entries:
+                merged_entries[p.slug] = (p.topic, p.summary)
 
-        self._fs.write_index(render_index_md(merged_summaries))
+        self._fs.write_index(render_index_md(merged_entries))
         self._fs.append_log(
             render_log_entry(filename, created, updated, proposed, today)
         )

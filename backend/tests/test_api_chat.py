@@ -5,6 +5,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from kb.main import create_app
 from kb.api.deps import get_wiki_fs
+from kb.api import chat as chat_module
 from kb.wiki.fs import WikiFS
 from tests.conftest import authenticate
 
@@ -15,9 +16,9 @@ async def _mock_query(question: str):
 
 
 @pytest.fixture
-def client(knowledge_dir):
+def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     tc = TestClient(app)
     authenticate(tc)
@@ -105,3 +106,30 @@ def test_chat_does_not_log_error_on_client_cancellation(client, caplog, mocker):
     assert not any("chat.stream_failed" in r.message for r in caplog.records)
     # And must not yield the generic "Stream failed" error-event payload.
     assert "Stream failed" not in body
+
+
+@pytest.mark.asyncio
+async def test_chat_uses_effective_query_model(knowledge_dir, schema_dir, monkeypatch):
+    monkeypatch.setattr(chat_module.settings, "llm_model", "gemini/gemini-2.5-flash")
+    monkeypatch.setattr(
+        chat_module.settings, "query_model", "gemini/gemini-2.5-flash-lite"
+    )
+
+    captured = {}
+
+    class FakeAgent:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        async def query(self, messages):
+            yield "ok"
+
+    monkeypatch.setattr(chat_module, "QueryAgent", FakeAgent)
+
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
+    request = chat_module.ValidatedChatRequest(
+        messages=[{"role": "user", "content": "hi"}]
+    )
+    await chat_module.chat(request, fs=fs)
+
+    assert captured["model"] == "gemini/gemini-2.5-flash-lite"

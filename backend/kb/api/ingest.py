@@ -29,11 +29,22 @@ async def _run_compile(
         fs.save_raw(filename, raw_content)
         agent = CompileAgent(
             fs=fs,
-            model=settings.llm_model,
+            model=settings.effective_compile_model,
             min_coverage=settings.compile_min_coverage,
             require_verbatim=settings.compile_require_verbatim,
+            max_retries=settings.compile_max_retries,
         )
         await agent.compile(filename, raw_content)
+        try:
+            fs.delete_raw(filename)
+        except Exception:
+            # Cleanup failure isn't an ingest failure — the wiki content
+            # was already written successfully.
+            logger.warning(
+                "ingest.delete_raw_failed",
+                extra={"job_id": job_id, "ingest_filename": filename},
+                exc_info=True,
+            )
         store.update_job(job_id, status=JobStatus.DONE)
     except LLMUpstreamError as exc:
         # LLMUpstreamError carries a sanitized, user-facing message — forward it
@@ -79,3 +90,22 @@ def get_job_status(
     if job.status == JobStatus.FAILED:
         raise HTTPException(status_code=500, detail=job.error or INGEST_FAILED_MESSAGE)
     return job
+
+
+@router.post("/sync", status_code=202)
+async def sync_vault(
+    background_tasks: BackgroundTasks,
+    fs: WikiFS = Depends(get_wiki_fs),
+    store: InMemoryJobStore = Depends(get_job_store),
+):
+    log_content = fs.read_log()
+    jobs = []
+    for filename in fs.list_raw_files():
+        if f"ingest | {filename}" not in log_content:
+            raw_content = fs.read_raw(filename)
+            job = store.create_job(filename)
+            background_tasks.add_task(
+                _run_compile, job.job_id, filename, raw_content, fs, store
+            )
+            jobs.append({"job_id": job.job_id, "filename": filename})
+    return {"jobs": jobs}

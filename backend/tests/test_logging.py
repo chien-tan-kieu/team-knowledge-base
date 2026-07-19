@@ -45,3 +45,20 @@ def test_no_phantom_logrecord_attrs_leak(capsys):
     logger.info("plain")
     payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert set(payload.keys()) == {"ts", "level", "logger", "message"}
+
+
+def test_litellm_noise_silenced_at_default_level(capsys):
+    setup_logging(level="INFO")
+    capsys.readouterr()  # discard setup noise, if any
+    logging.getLogger("LiteLLM").info("raw LLM request/response would appear here")
+    assert capsys.readouterr().out == ""
+
+
+def test_litellm_noise_visible_at_debug_level(capsys):
+    setup_logging(level="DEBUG")
+    capsys.readouterr()
+    logging.getLogger("LiteLLM").info("raw LLM request/response would appear here")
+    out = capsys.readouterr().out.strip()
+    assert out != ""
+    payload = json.loads(out.splitlines()[-1])
+    assert payload["logger"] == "LiteLLM"

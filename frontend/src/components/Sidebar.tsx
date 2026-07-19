@@ -142,12 +142,12 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
       {/* Mobile inline wiki list — shown when expanded; desktop uses WikiDrawer */}
       {wikiExpanded && (
         <nav className="md:hidden flex flex-col gap-px py-1">
-          {pages.map(s => {
-            const active = s === currentSlug
+          {pages.map(p => {
+            const active = p.slug === currentSlug
             return (
               <Link
-                key={s}
-                to={`/wiki/${s}`}
+                key={p.slug}
+                to={`/wiki/${p.slug}`}
                 onClick={onNavigate}
                 className={[
                   'grid grid-cols-[8px_1fr] items-center gap-2',
@@ -166,7 +166,7 @@ export function Sidebar({ open, onNavigate, onWikiToggle, wikiDrawerOpen, resize
                   }}
                   aria-hidden
                 />
-                <span className="truncate">{s}</span>
+                <span className="truncate">{p.slug}</span>
               </Link>
             )
           })}

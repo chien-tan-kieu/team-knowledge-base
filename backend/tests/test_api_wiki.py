@@ -7,9 +7,9 @@ from tests.conftest import authenticate
 
 
 @pytest.fixture
-def client(knowledge_dir):
+def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     fs.write_page(
         "deploy-process",
@@ -22,12 +22,21 @@ def client(knowledge_dir):
     return tc, fs
 
 
-def test_list_wiki_pages(client):
-    tc, _ = client
+def test_list_wiki_pages_returns_meta_objects(client):
+    tc, fs = client
+    fs.write_page(
+        "bmad",
+        "---\nslug: bmad\ntitle: BMAD\ntopic: spec-tools\n---\n# BMAD\n\nBody.\n",
+    )
     response = tc.get("/api/wiki")
     assert response.status_code == 200
-    slugs = response.json()["pages"]
-    assert "deploy-process" in slugs
+    pages = {p["slug"]: p for p in response.json()["pages"]}
+    assert pages["bmad"] == {"slug": "bmad", "title": "BMAD", "topic": "spec-tools"}
+    assert pages["deploy-process"] == {
+        "slug": "deploy-process",
+        "title": "Deploy Process",
+        "topic": None,
+    }
 
 
 def test_get_wiki_page(client):

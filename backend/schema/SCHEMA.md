@@ -11,6 +11,7 @@ Every wiki page in `wiki/pages/` has YAML frontmatter followed by a free-form Ma
 slug: <slug>
 title: <Page Title>
 summary: One-paragraph synopsis used by the index.
+topic: <topic-slug>
 related: [other-slug, another-slug]
 sources: [raw-filename-1.md, raw-filename-2.md]
 updated: YYYY-MM-DD
@@ -29,6 +30,7 @@ Frontmatter fields:
 - `slug` — lowercase, hyphen-separated. Regex `^[a-z0-9]+(-[a-z0-9]+)*$`. Matches the filename stem.
 - `title` — human-readable. Rendered as the body's first `#` heading.
 - `summary` — single paragraph, used verbatim as the index bullet.
+- `topic` — broad subject area, slug format (regex `^[a-z0-9]+(-[a-z0-9]+)*$`), humanized only for display (`spec-tools` → `Spec Tools`). Groups pages in the index and the `/wiki` list. The names `uncategorized` and `pages` are reserved and rejected by validation.
 - `related` — list of other slugs. Empty list if none.
 - `sources` — list of raw filenames inside `knowledge/raw/`. Grows on re-ingest.
 - `updated` — ISO date (`YYYY-MM-DD`). Advances on every compiler write.
@@ -55,19 +57,23 @@ A page is the human's when its frontmatter says `edited_by: human`. Humans set t
 
 ## Index Format (rendered in code)
 
-`wiki/index.md` is fully regenerated on every ingest from the union of existing index entries and new page summaries:
+`wiki/index.md` is fully regenerated on every ingest from the union of existing index entries and new page summaries, grouped by topic:
 
 ```
 # Knowledge Base Index
 
 This file is maintained by the CompileAgent. Do not edit manually.
 
-## Pages
+## <Topic>
 
 - [[slug-name]] — Summary string from frontmatter
+
+## Uncategorized
+
+- [[legacy-page]] — Summary string
 ```
 
-Slugs are sorted alphabetically. The bullet text is the `summary` frontmatter field of the current page (or the prior index entry if the page was not touched by this ingest).
+Topic headings are humanized topic slugs (`spec-tools` → `Spec Tools`), sorted alphabetically. Slugs sort alphabetically within each section. Pages whose index entry predates topics land under `## Uncategorized`, which always renders last and is omitted when empty. When parsing, the legacy heading `## Pages` (and any reserved or non-slug heading) is treated as "no topic" — a pre-topic index is valid input and needs no migration.
 
 ## Log Format (rendered in code)
 

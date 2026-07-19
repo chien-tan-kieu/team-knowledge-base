@@ -7,7 +7,7 @@ router = APIRouter(prefix="/api/wiki", tags=["wiki"])
 
 @router.get("")
 def list_pages(fs: WikiFS = Depends(get_wiki_fs)):
-    return {"pages": fs.list_pages()}
+    return {"pages": fs.list_page_meta()}
 
 
 @router.get("/{slug}")

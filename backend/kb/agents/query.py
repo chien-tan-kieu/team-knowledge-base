@@ -1,16 +1,24 @@
 from typing import AsyncIterator
 import logging
+import re
 import litellm
+from pydantic import BaseModel, Field, ValidationError
+
+from kb.agents.compile_schema import SlugStr
+from kb.agents.structured import structured_output_kwargs
 from kb.errors import LLMUpstreamError
 from kb.wiki.fs import WikiFS
 
 logger = logging.getLogger(__name__)
 
 SELECT_HISTORY_TURNS = 3
+MAX_CONTEXT_PAGES = 8
+
+WIKILINK_RE = re.compile(r"\[\[([a-z0-9][a-z0-9-]*)\]\]")
 
 SELECT_PROMPT = """You are a knowledge base search assistant.
 
-Given the index below and the recent conversation, return ONLY the slugs of the most relevant wiki pages (comma-separated, max 5). No explanation.
+Given the index below and the recent conversation, return the slugs of the wiki pages most relevant to the conversation (max 5).
 
 INDEX:
 {index}
@@ -18,7 +26,7 @@ INDEX:
 RECENT CONVERSATION:
 {history}
 
-Respond with slugs only, e.g.: deploy-process, database-migrations"""
+Respond with JSON only, e.g.: {{"slugs": ["deploy-process", "database-migrations"]}}"""
 
 
 ANSWER_SYSTEM_PROMPT = """You are a helpful knowledge base assistant. Answer using ONLY the wiki pages provided below.
@@ -35,6 +43,25 @@ Each entry is `slug:line_start-line_end` (inclusive, 1-indexed). Use a single li
 
 Example:
 __CITATIONS__:deploy-process:15-22,ci-cd:30"""
+
+
+class SelectOutput(BaseModel):
+    slugs: list[SlugStr] = Field(
+        max_length=5,
+        description="Slugs of the wiki pages most relevant to the conversation.",
+    )
+
+
+def _parse_selected_slugs(raw: str) -> list[str]:
+    """Parse Phase 1 output: JSON schema first, comma-split fallback."""
+    try:
+        return list(SelectOutput.model_validate_json(raw).slugs)
+    except ValidationError:
+        return [s.strip() for s in raw.split(",") if s.strip()]
+
+
+def _parse_wikilinks(body: str) -> list[str]:
+    return WIKILINK_RE.findall(body)
 
 
 def _format_history(messages: list[dict]) -> str:
@@ -68,26 +95,49 @@ class QueryAgent:
                     "role": "user",
                     "content": SELECT_PROMPT.format(index=index, history=_format_history(recent)),
                 }],
+                **structured_output_kwargs(
+                    self._model, SelectOutput.model_json_schema(), name="select_output"
+                ),
             )
         except Exception as exc:
             logger.error("llm.select_failed")
             raise LLMUpstreamError() from exc
 
         slugs_raw = select_response.choices[0].message.content.strip()
-        slugs = [s.strip() for s in slugs_raw.split(",") if s.strip()]
+        indexed_slugs = set(WIKILINK_RE.findall(index))
+        slugs = [s for s in _parse_selected_slugs(slugs_raw) if s in indexed_slugs]
 
-        # Phase 2: read selected pages (body + title only)
+        # Phase 2: read selected pages, collect bodies for link expansion
         pages_content = ""
+        fetched_bodies: list[str] = []
         for slug in slugs:
             try:
                 page = self._fs.read_page(slug)
                 pages_content += _format_page_with_line_numbers(slug, page.body)
+                fetched_bodies.append(page.body)
             except FileNotFoundError:
                 continue
             except ValueError as exc:
                 logger.warning(
                     "wiki.page_malformed", extra={"slug": slug, "error": str(exc)}
                 )
+                continue
+
+        # Phase 2b: one-hop link expansion
+        fetched_slugs = set(slugs)
+        linked_slugs: list[str] = []
+        for body in fetched_bodies:
+            for slug in _parse_wikilinks(body):
+                if slug not in fetched_slugs:
+                    linked_slugs.append(slug)
+                    fetched_slugs.add(slug)
+
+        budget = MAX_CONTEXT_PAGES - len(slugs)
+        for slug in linked_slugs[:budget]:
+            try:
+                page = self._fs.read_page(slug)
+                pages_content += _format_page_with_line_numbers(slug, page.body)
+            except (FileNotFoundError, ValueError):
                 continue
 
         if not pages_content:

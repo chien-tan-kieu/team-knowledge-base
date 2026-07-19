@@ -53,3 +53,8 @@ def setup_logging(level: str = "INFO") -> None:
     root.setLevel(level)
     # Silence noisy uvicorn access logger — we log request/response ourselves.
     logging.getLogger("uvicorn.access").propagate = False
+    # LiteLLM's own logger has no level of its own, so it inherits root's —
+    # at INFO it leaks request/response-adjacent chatter. Clamp it to WARNING
+    # unless the operator explicitly asks for DEBUG (then let it all through).
+    litellm_level = logging.DEBUG if level.upper() == "DEBUG" else logging.WARNING
+    logging.getLogger("LiteLLM").setLevel(litellm_level)
