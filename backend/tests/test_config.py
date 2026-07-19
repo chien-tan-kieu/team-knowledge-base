@@ -36,3 +36,8 @@ def test_default_model_is_gemini_flash():
 def test_compile_max_retries_defaults_to_one():
     s = _make_settings()
     assert s.compile_max_retries == 1
+
+
+def test_raw_dir_defaults_to_project_relative_path_independent_of_knowledge_dir():
+    s = _make_settings(knowledge_dir=Path("/some/obsidian/vault"))
+    assert s.raw_dir == Path("knowledge/raw")

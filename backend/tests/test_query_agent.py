@@ -20,7 +20,7 @@ def _make_streaming_mock(tokens: list[str]):
 
 @pytest.mark.asyncio
 async def test_query_streams_answer(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -48,7 +48,7 @@ async def test_query_streams_answer(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_query_returns_citations(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -70,7 +70,7 @@ async def test_query_returns_citations(knowledge_dir, schema_dir):
 
 
 async def test_query_agent_wraps_litellm_errors(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     agent = QueryAgent(fs=fs, model="test-model")
 
     with patch("kb.agents.query.litellm.acompletion", side_effect=RuntimeError("boom")):
@@ -81,7 +81,7 @@ async def test_query_agent_wraps_litellm_errors(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_query_takes_messages_list(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -113,7 +113,7 @@ async def test_query_takes_messages_list(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase1_uses_last_n_turns(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
@@ -145,7 +145,7 @@ async def test_phase1_uses_last_n_turns(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase2_pages_are_line_numbered(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\n"
@@ -170,7 +170,7 @@ async def test_phase2_pages_are_line_numbered(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase2_prompt_requests_ranged_citations(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx",
@@ -206,7 +206,7 @@ def test_parse_wikilinks_ignores_non_slug_content():
 
 @pytest.mark.asyncio
 async def test_query_expands_linked_pages(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
@@ -234,7 +234,7 @@ async def test_query_expands_linked_pages(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_query_does_not_duplicate_already_selected_slug(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
@@ -257,7 +257,7 @@ async def test_query_does_not_duplicate_already_selected_slug(knowledge_dir, sch
 
 @pytest.mark.asyncio
 async def test_query_skips_missing_linked_page(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\nedited_by: llm\n---\n"
@@ -280,7 +280,7 @@ async def test_query_skips_missing_linked_page(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase1_requests_structured_output(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nx\n",
@@ -302,7 +302,7 @@ async def test_phase1_requests_structured_output(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase1_parses_json_slug_response(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",
@@ -324,7 +324,7 @@ async def test_phase1_parses_json_slug_response(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_phase1_falls_back_to_comma_parse_on_free_text(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",
@@ -346,7 +346,7 @@ async def test_phase1_falls_back_to_comma_parse_on_free_text(knowledge_dir, sche
 
 @pytest.mark.asyncio
 async def test_selected_slug_not_in_index_is_filtered(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_page(
         "deploy-process",
         "---\nslug: deploy-process\ntitle: Deploy Process\n---\nRun make deploy.\n",

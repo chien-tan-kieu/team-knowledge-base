@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     query_model: str | None = None
     knowledge_dir: Path                          # required — no default; set in .env
     schema_dir: Path = Path("schema")            # relative to backend/ working dir
+    raw_dir: Path = Path("knowledge/raw")        # relative to backend/ working dir
 
     # Auth
     jwt_secret: str

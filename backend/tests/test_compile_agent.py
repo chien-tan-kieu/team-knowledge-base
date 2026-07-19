@@ -41,7 +41,7 @@ def _page_path(knowledge_dir, slug):
 
 @pytest.mark.asyncio
 async def test_compile_creates_wiki_page_with_frontmatter(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
@@ -60,7 +60,7 @@ async def test_compile_creates_wiki_page_with_frontmatter(knowledge_dir, schema_
 
 @pytest.mark.asyncio
 async def test_compile_updates_index_from_summary(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
@@ -75,7 +75,7 @@ async def test_compile_updates_index_from_summary(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_log_lists_created(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
@@ -90,7 +90,7 @@ async def test_compile_log_lists_created(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_overwrites_llm_page_and_merges_sources(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     # Seed an existing llm page whose frontmatter includes a prior source.
     prior = dump_frontmatter(
         {
@@ -125,7 +125,7 @@ async def test_compile_overwrites_llm_page_and_merges_sources(knowledge_dir, sch
 
 @pytest.mark.asyncio
 async def test_compile_overwrites_llm_page_and_merges_related(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     prior = dump_frontmatter(
         {
             "slug": "onboarding-guide",
@@ -168,7 +168,7 @@ async def test_compile_overwrites_llm_page_and_merges_related(knowledge_dir, sch
 
 @pytest.mark.asyncio
 async def test_compile_appends_proposed_updates_on_human_page(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     human_page = dump_frontmatter(
         {
             "slug": "onboarding-guide",
@@ -212,7 +212,7 @@ async def test_compile_appends_proposed_updates_on_human_page(knowledge_dir, sch
 
 @pytest.mark.asyncio
 async def test_compile_replaces_prior_proposed_block_for_same_raw(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     first_body = (
         "# Human Curated\n\nHand-written.\n\n"
         "## Proposed updates (from onboarding.md)\n\n"
@@ -251,7 +251,7 @@ async def test_compile_replaces_prior_proposed_block_for_same_raw(knowledge_dir,
 
 @pytest.mark.asyncio
 async def test_compile_proposed_block_preserves_following_subheading(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     body_with_following = (
         "# Human Curated\n\nHand-written.\n\n"
         "## Proposed updates (from onboarding.md)\n\n"
@@ -293,7 +293,7 @@ async def test_compile_proposed_block_preserves_following_subheading(knowledge_d
 
 @pytest.mark.asyncio
 async def test_compile_strips_stale_proposed_block_with_internal_subheading(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     body_with_internal_h3 = (
         "# Human Curated\n\nHand-written.\n\n"
         "## Proposed updates (from onboarding.md)\n\n"
@@ -342,7 +342,7 @@ async def test_compile_strips_stale_proposed_block_with_internal_subheading(know
 
 @pytest.mark.asyncio
 async def test_compile_rejects_invalid_slug(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     bad = {
         "pages": [
             {
@@ -365,7 +365,7 @@ async def test_compile_rejects_invalid_slug(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_rejects_existing_page_without_frontmatter(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     _page_path(knowledge_dir, "onboarding-guide").write_text(
         "# Old format\n\nNo frontmatter at all.\n",
         encoding="utf-8",
@@ -381,7 +381,7 @@ async def test_compile_rejects_existing_page_without_frontmatter(knowledge_dir, 
 
 @pytest.mark.asyncio
 async def test_compile_rejects_short_body(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     short = {
         "pages": [
             {
@@ -404,7 +404,7 @@ async def test_compile_rejects_short_body(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_rejects_low_coverage(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD)),
@@ -416,7 +416,7 @@ async def test_compile_rejects_low_coverage(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_rejects_missing_code_block(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     raw = (
         "Here is a critical code block.\n\n"
         "```python\ndef hello():\n    return 1\n```\n\n"
@@ -444,7 +444,7 @@ async def test_compile_rejects_missing_code_block(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_accepts_when_code_block_preserved(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     code_block = "```python\ndef hello():\n    return 1\n```"
     raw = f"Intro.\n\n{code_block}\n\nOutro.\n"
     payload = {
@@ -468,7 +468,7 @@ async def test_compile_accepts_when_code_block_preserved(knowledge_dir, schema_d
 
 @pytest.mark.asyncio
 async def test_compile_rejects_missing_table(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     raw = (
         "Here is a critical table.\n\n"
         "| col-a | col-b |\n"
@@ -499,7 +499,7 @@ async def test_compile_rejects_missing_table(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_accepts_when_table_preserved(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     table = (
         "| col-a | col-b |\n"
         "| --- | --- |\n"
@@ -528,7 +528,7 @@ async def test_compile_accepts_when_table_preserved(knowledge_dir, schema_dir):
 
 @pytest.mark.asyncio
 async def test_compile_wraps_litellm_errors(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     agent = CompileAgent(fs=fs, model="test-model")
     with patch(
         "kb.agents.compile.litellm.acompletion", side_effect=RuntimeError("boom")
@@ -568,7 +568,7 @@ def test_structured_output_kwargs_uses_response_format_for_frontier(model):
 
 @pytest.mark.asyncio
 async def test_compile_passes_format_extra_body_for_ollama_model(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock_completion = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
     with patch("litellm.acompletion", new=mock_completion):
         agent = CompileAgent(
@@ -586,7 +586,7 @@ async def test_compile_passes_format_extra_body_for_ollama_model(knowledge_dir, 
 
 @pytest.mark.asyncio
 async def test_compile_passes_response_format_for_frontier_model(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock_completion = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
     with patch("litellm.acompletion", new=mock_completion):
         agent = CompileAgent(
@@ -614,7 +614,7 @@ async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir, 
             }
         ]
     }
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(bad_payload)),
@@ -629,7 +629,7 @@ async def test_compile_rejects_when_llm_returns_non_slug_related(knowledge_dir, 
 
 @pytest.mark.asyncio
 async def test_compile_unescapes_literal_newlines_in_body(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     # Simulates an LLM that double-escapes newlines in structured JSON output:
     # the raw JSON text contains a literal `\\n` (backslash, backslash, n),
     # which JSON-decodes to the 2-character text "\n" instead of a real
@@ -690,7 +690,7 @@ async def test_compile_rejects_when_llm_returns_block_html(knowledge_dir, schema
             }
         ]
     }
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     with patch(
         "litellm.acompletion",
         new=AsyncMock(return_value=_mock_response(bad_payload)),
@@ -734,7 +734,7 @@ PAGE_WITH_CODE = {
 
 @pytest.mark.asyncio
 async def test_compile_retries_with_feedback_then_succeeds(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock = AsyncMock(
         side_effect=[_mock_response(PAGE_WITHOUT_CODE), _mock_response(PAGE_WITH_CODE)]
     )
@@ -754,7 +754,7 @@ async def test_compile_retries_with_feedback_then_succeeds(knowledge_dir, schema
 
 @pytest.mark.asyncio
 async def test_compile_raises_after_exhausting_retries(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock = AsyncMock(return_value=_mock_response(PAGE_WITHOUT_CODE))
     with patch("litellm.acompletion", new=mock):
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
@@ -767,7 +767,7 @@ async def test_compile_raises_after_exhausting_retries(knowledge_dir, schema_dir
 
 @pytest.mark.asyncio
 async def test_compile_max_retries_zero_disables_retry(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock = AsyncMock(return_value=_mock_response(PAGE_WITHOUT_CODE))
     with patch("litellm.acompletion", new=mock):
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0, max_retries=0)
@@ -779,7 +779,7 @@ async def test_compile_max_retries_zero_disables_retry(knowledge_dir, schema_dir
 
 @pytest.mark.asyncio
 async def test_compile_transport_errors_are_not_retried(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock = AsyncMock(side_effect=RuntimeError("connection reset"))
     with patch("litellm.acompletion", new=mock):
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
@@ -798,7 +798,7 @@ async def test_compile_retries_on_reserved_topic(knowledge_dir, schema_dir):
         side_effect=[_mock_response(bad_payload), _mock_response(ONBOARDING_PAYLOAD)]
     )
     with patch("litellm.acompletion", new=mock):
-        fs = WikiFS(knowledge_dir, schema_dir)
+        fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)
         await agent.compile("onboarding.md", "raw " * 100)
 
@@ -838,7 +838,7 @@ def test_parse_index_bullets_before_any_heading_are_topicless():
 
 @pytest.mark.asyncio
 async def test_compile_new_topic_wins_on_llm_owned_update(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     prior = dump_frontmatter(
         {
             "slug": "onboarding-guide",
@@ -875,7 +875,7 @@ async def test_compile_new_topic_wins_on_llm_owned_update(knowledge_dir, schema_
 
 @pytest.mark.asyncio
 async def test_compile_preserves_topic_on_human_owned_page(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     prior = dump_frontmatter(
         {
             "slug": "onboarding-guide",
@@ -915,7 +915,7 @@ async def test_compile_preserves_topic_on_human_owned_page(knowledge_dir, schema
 async def test_compile_preserves_untouched_pages_topics_in_index(
     knowledge_dir, schema_dir
 ):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_index(
         render_index_md({"other-page": ("cognition", "Another page entirely.")})
     )
@@ -936,7 +936,7 @@ async def test_compile_preserves_untouched_pages_topics_in_index(
 
 @pytest.mark.asyncio
 async def test_compile_prompt_lists_existing_topics(knowledge_dir, schema_dir):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     fs.write_index(render_index_md({
         "bmad": ("spec-tools", "A tool."),
         "fluency-illusion": ("cognition", "A bias."),
@@ -958,7 +958,7 @@ async def test_compile_prompt_lists_existing_topics(knowledge_dir, schema_dir):
 async def test_compile_prompt_topics_show_none_yet_when_empty(
     knowledge_dir, schema_dir
 ):
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     mock = AsyncMock(return_value=_mock_response(ONBOARDING_PAYLOAD))
     with patch("litellm.acompletion", new=mock):
         agent = CompileAgent(fs=fs, model="test", min_coverage=0.0)

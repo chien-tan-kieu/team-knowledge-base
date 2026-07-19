@@ -9,8 +9,8 @@ _SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 class WikiFS:
-    def __init__(self, knowledge_dir: Path, schema_dir: Path) -> None:
-        self._raw    = knowledge_dir / "raw"
+    def __init__(self, knowledge_dir: Path, schema_dir: Path, raw_dir: Path) -> None:
+        self._raw    = raw_dir
         self._wiki   = knowledge_dir / "wiki"
         self._pages  = knowledge_dir / "wiki" / "pages"
         self._schema = schema_dir

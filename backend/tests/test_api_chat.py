@@ -18,7 +18,7 @@ async def _mock_query(question: str):
 @pytest.fixture
 def client(knowledge_dir, schema_dir):
     app = create_app()
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     app.dependency_overrides[get_wiki_fs] = lambda: fs
     tc = TestClient(app)
     authenticate(tc)
@@ -126,7 +126,7 @@ async def test_chat_uses_effective_query_model(knowledge_dir, schema_dir, monkey
 
     monkeypatch.setattr(chat_module, "QueryAgent", FakeAgent)
 
-    fs = WikiFS(knowledge_dir, schema_dir)
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
     request = chat_module.ValidatedChatRequest(
         messages=[{"role": "user", "content": "hi"}]
     )
