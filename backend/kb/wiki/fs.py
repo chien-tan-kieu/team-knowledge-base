@@ -66,6 +66,16 @@ class WikiFS:
             })
         return metas
 
+    def pages_fingerprint(self) -> tuple[tuple[str, int, int], ...]:
+        """Cheap change-detector for the pages dir: sorted (name, mtime_ns,
+        size) for every page file. Used to decide when the search index is
+        stale without reading file contents."""
+        entries = []
+        for path in sorted(self._pages.glob("*.md")):
+            st = path.stat()
+            entries.append((path.name, st.st_mtime_ns, st.st_size))
+        return tuple(entries)
+
     def append_log(self, entry: str) -> None:
         log_path = self._wiki / "log.md"
         existing = log_path.read_text(encoding="utf-8")
