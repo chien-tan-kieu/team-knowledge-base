@@ -22,6 +22,12 @@ export interface WikiPageMeta {
   topic: string | null
 }
 
+export interface SearchResult {
+  slug: string
+  title: string
+  snippet: string
+}
+
 export type JobStatus = 'pending' | 'running' | 'done' | 'failed'
 
 export interface IngestJob {

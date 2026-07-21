@@ -1,4 +1,4 @@
-import type { WikiPage, WikiPageMeta, IngestJob, LintResult, ApiErrorBody, ChatMessage } from './types'
+import type { WikiPage, WikiPageMeta, IngestJob, LintResult, ApiErrorBody, ChatMessage, SearchResult } from './types'
 
 export class ApiError extends Error {
   code: string
@@ -61,6 +61,15 @@ export async function getWikiPages(): Promise<WikiPageMeta[]> {
 
 export async function getWikiPage(slug: string): Promise<WikiPage> {
   return fetchJson<WikiPage>(`/api/wiki/${slug}`)
+}
+
+export async function getSearchResults(q: string, signal?: AbortSignal): Promise<SearchResult[]> {
+  if (!q.trim()) return []
+  const data = await fetchJson<{ results: SearchResult[] }>(
+    `/api/search?q=${encodeURIComponent(q)}`,
+    { signal },
+  )
+  return data.results
 }
 
 export async function ingestFile(file: File): Promise<IngestJob> {
