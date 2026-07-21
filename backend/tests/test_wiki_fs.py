@@ -206,3 +206,15 @@ def test_list_page_meta_sorted_by_slug(knowledge_dir, schema_dir):
     fs.write_page("zeta", "---\nslug: zeta\ntitle: Z\n---\nBody.\n")
     fs.write_page("alpha", "---\nslug: alpha\ntitle: A\n---\nBody.\n")
     assert [m["slug"] for m in fs.list_page_meta()] == ["alpha", "zeta"]
+
+
+def test_pages_fingerprint_changes_on_write(knowledge_dir, schema_dir):
+    fs = WikiFS(knowledge_dir, schema_dir, knowledge_dir / "raw")
+    assert fs.pages_fingerprint() == ()
+    fs.write_page("alpha", "# Alpha\n\nBody.\n")
+    fp1 = fs.pages_fingerprint()
+    assert [name for name, _mtime, _size in fp1] == ["alpha.md"]
+    fs.write_page("beta", "# Beta\n\nMore.\n")
+    fp2 = fs.pages_fingerprint()
+    assert fp2 != fp1
+    assert [name for name, _mtime, _size in fp2] == ["alpha.md", "beta.md"]

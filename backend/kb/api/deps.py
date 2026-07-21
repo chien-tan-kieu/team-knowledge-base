@@ -1,5 +1,6 @@
 from functools import lru_cache
 from kb.wiki.fs import WikiFS
+from kb.wiki.search import WikiSearch
 from kb.jobs.store import InMemoryJobStore
 from kb.config import settings
 
@@ -7,6 +8,11 @@ from kb.config import settings
 @lru_cache
 def get_wiki_fs() -> WikiFS:
     return WikiFS(settings.knowledge_dir, settings.schema_dir, settings.raw_dir)
+
+
+@lru_cache
+def get_wiki_search() -> WikiSearch:
+    return WikiSearch(get_wiki_fs())
 
 
 @lru_cache

@@ -41,6 +41,10 @@ class WikiFS:
     def write_page(self, slug: str, content: str) -> None:
         (self._pages / f"{slug}.md").write_text(content, encoding="utf-8")
 
+    def read_page_text(self, slug: str) -> str:
+        """Raw file content for a page, regardless of frontmatter validity."""
+        return (self._pages / f"{slug}.md").read_text(encoding="utf-8")
+
     def list_pages(self) -> list[str]:
         return sorted(p.stem for p in self._pages.glob("*.md"))
 
@@ -65,6 +69,16 @@ class WikiFS:
                 ),
             })
         return metas
+
+    def pages_fingerprint(self) -> tuple[tuple[str, int, int], ...]:
+        """Cheap change-detector for the pages dir: sorted (name, mtime_ns,
+        size) for every page file. Used to decide when the search index is
+        stale without reading file contents."""
+        entries = []
+        for path in sorted(self._pages.glob("*.md")):
+            st = path.stat()
+            entries.append((path.name, st.st_mtime_ns, st.st_size))
+        return tuple(entries)
 
     def append_log(self, entry: str) -> None:
         log_path = self._wiki / "log.md"

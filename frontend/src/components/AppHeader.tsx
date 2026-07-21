@@ -5,9 +5,10 @@ interface Props {
   onMobileMenuOpen: () => void
   sidebarCollapsed: boolean
   onSidebarToggle: () => void
+  onSearchOpen: () => void
 }
 
-export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle }: Props) {
+export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle, onSearchOpen }: Props) {
   const { theme, toggle } = useTheme()
 
   return (
@@ -50,6 +51,7 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle 
       <button
         type="button"
         aria-label="Search"
+        onClick={onSearchOpen}
         className="hidden sm:grid grid-cols-[16px_1fr_auto] items-center gap-2.5 w-full max-w-[420px] px-3 py-1.5 rounded-[10px] text-[13px] bg-surface text-fg-dim transition-[box-shadow,background] duration-200 hover:bg-elevated"
         style={{ boxShadow: 'var(--shadow-ring)' }}
       >
