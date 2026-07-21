@@ -1,6 +1,19 @@
 from pathlib import Path
 
+import pytest
+
 from kb.config import Settings
+
+
+@pytest.fixture(autouse=True)
+def _isolate_model_env(monkeypatch):
+    # Importing litellm elsewhere in the suite triggers its own load_dotenv(),
+    # which writes backend/.env's LLM_MODEL into os.environ for the rest of the
+    # process — pydantic-settings reads os.environ regardless of _env_file, so
+    # these default-value assertions would otherwise depend on test order.
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("COMPILE_MODEL", raising=False)
+    monkeypatch.delenv("QUERY_MODEL", raising=False)
 
 
 def _make_settings(**overrides) -> Settings:
