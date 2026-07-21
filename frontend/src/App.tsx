@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/Sidebar'
 import { WikiDrawer } from './components/WikiDrawer'
 import { SessionGate } from './components/SessionGate'
 import { AppHeader } from './components/AppHeader'
+import { SearchOverlay } from './components/SearchOverlay'
 import { ChatPage } from './pages/ChatPage'
 import { WikiPage } from './pages/WikiPage'
 import { IngestPage } from './pages/IngestPage'
@@ -12,8 +13,20 @@ import { useResizableSidebar } from './hooks/useResizableSidebar'
 export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [wikiDrawerOpen, setWikiDrawerOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const resize = useResizableSidebar()
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen(o => !o)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
 
   function handleNavigate() {
     setDrawerOpen(false)
@@ -35,7 +48,10 @@ export function App() {
           }}
           sidebarCollapsed={resize.collapsed}
           onSidebarToggle={resize.toggleCollapsed}
+          onSearchOpen={() => setSearchOpen(true)}
         />
+
+        <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
 
         <div className="flex-1 min-h-0 flex relative">
           {/* Mobile backdrop */}
