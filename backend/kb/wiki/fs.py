@@ -41,6 +41,10 @@ class WikiFS:
     def write_page(self, slug: str, content: str) -> None:
         (self._pages / f"{slug}.md").write_text(content, encoding="utf-8")
 
+    def read_page_text(self, slug: str) -> str:
+        """Raw file content for a page, regardless of frontmatter validity."""
+        return (self._pages / f"{slug}.md").read_text(encoding="utf-8")
+
     def list_pages(self) -> list[str]:
         return sorted(p.stem for p in self._pages.glob("*.md"))
 

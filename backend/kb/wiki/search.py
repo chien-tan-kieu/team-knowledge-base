@@ -52,8 +52,7 @@ class WikiSearch:
                 self._bodies.append(page.body)
             except ValueError:
                 # Handle pages without proper frontmatter by treating entire content as body
-                path = self._fs._pages / f"{slug}.md"
-                self._bodies.append(path.read_text(encoding="utf-8"))
+                self._bodies.append(self._fs.read_page_text(slug))
         meta = {m["slug"]: m for m in self._fs.list_page_meta()}
         self._titles = {
             slug: (meta.get(slug, {}).get("title") or slug) for slug in self._slugs
@@ -76,6 +75,9 @@ class WikiSearch:
             (
                 (score, i)
                 for i, score in enumerate(scores)
+                # BM25 IDF is exactly 0 when a term's document frequency == N/2,
+                # which would make `score > 0` alone drop genuine token matches
+                # in small corpora — fall back to a raw token-overlap check.
                 if score > 0 or (query_set & set(_tokenize(self._bodies[i])))
             ),
             key=lambda pair: pair[0],
