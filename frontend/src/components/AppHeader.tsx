@@ -47,26 +47,25 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
 
       <div className="flex-1" />
 
-      {/* Command palette trigger (placeholder) */}
-      <button
-        type="button"
-        aria-label="Search"
-        onClick={onSearchOpen}
-        className="hidden sm:grid absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid-cols-[16px_1fr_auto] items-center gap-2.5 w-full max-w-75 px-3 py-1.5 rounded-[10px] text-[13px] bg-surface text-fg-dim transition-[box-shadow,background] duration-200 hover:bg-elevated"
-        style={{ boxShadow: 'var(--shadow-ring)' }}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="7" />
-          <path strokeLinecap="round" d="m20 20-3.5-3.5" />
-        </svg>
-        <span className="text-left truncate">Search pages, ask anything…</span>
-        <kbd className="text-[10.5px] font-medium font-mono px-1.5 py-0.5 rounded bg-elevated text-fg-muted border border-line-strong">
-          ⌘K
-        </kbd>
-      </button>
-
       {/* Right cluster */}
       <div className="flex items-center gap-1">
+        {/* Command palette trigger — icon-only below sm, full bar (absolutely centered) at sm+ */}
+        <button
+          type="button"
+          aria-label="Search"
+          onClick={onSearchOpen}
+          className="relative w-9 h-9 grid items-center justify-items-center rounded-lg text-fg-muted transition-colors duration-200 hover:bg-sand hover:text-fg sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:grid-cols-[16px_1fr_auto] sm:justify-items-stretch sm:gap-2.5 sm:w-full sm:h-auto sm:max-w-75 sm:px-3 sm:py-1.5 sm:rounded-[10px] sm:text-[13px] sm:bg-surface sm:text-fg-dim sm:transition-[box-shadow,background] sm:hover:bg-elevated sm:hover:text-fg-dim sm:[box-shadow:var(--shadow-ring)]"
+        >
+          <svg className="w-[18px] h-[18px] sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path strokeLinecap="round" d="m20 20-3.5-3.5" />
+          </svg>
+          <span className="hidden sm:inline text-left truncate">Search pages, ask anything…</span>
+          <kbd className="hidden sm:inline-block text-[10.5px] font-medium font-mono px-1.5 py-0.5 rounded bg-elevated text-fg-muted border border-line-strong">
+            ⌘K
+          </kbd>
+        </button>
+
         <Notifications />
 
         <button
