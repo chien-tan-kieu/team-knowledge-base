@@ -12,7 +12,7 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
   const { theme, toggle } = useTheme()
 
   return (
-    <header className="h-14 flex-shrink-0 border-b border-line bg-canvas relative z-30 flex items-center gap-3 px-4 sm:px-5 pt-safe">
+    <header className="h-14 shrink-0 border-b border-line bg-canvas relative z-30 flex items-center gap-3 px-4 sm:px-5 pt-safe">
       <button
         type="button"
         aria-label="Open navigation"
@@ -52,7 +52,7 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
         type="button"
         aria-label="Search"
         onClick={onSearchOpen}
-        className="hidden sm:grid grid-cols-[16px_1fr_auto] items-center gap-2.5 w-full max-w-[420px] px-3 py-1.5 rounded-[10px] text-[13px] bg-surface text-fg-dim transition-[box-shadow,background] duration-200 hover:bg-elevated"
+        className="hidden sm:grid absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 grid-cols-[16px_1fr_auto] items-center gap-2.5 w-full max-w-75 px-3 py-1.5 rounded-[10px] text-[13px] bg-surface text-fg-dim transition-[box-shadow,background] duration-200 hover:bg-elevated"
         style={{ boxShadow: 'var(--shadow-ring)' }}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
@@ -65,8 +65,6 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
         </kbd>
       </button>
 
-      <div className="flex-1 hidden sm:block" />
-
       {/* Right cluster */}
       <div className="flex items-center gap-1">
         <Notifications />
@@ -78,7 +76,7 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
           onClick={onSidebarToggle}
           className="hidden md:grid relative w-9 h-9 place-items-center rounded-lg text-fg-muted hover:bg-sand hover:text-fg transition-colors duration-200"
         >
-          <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path strokeLinecap="round" d="M9 4v16" />
             {sidebarCollapsed ? (
@@ -96,12 +94,12 @@ export function AppHeader({ onMobileMenuOpen, sidebarCollapsed, onSidebarToggle,
           className="relative w-9 h-9 grid place-items-center rounded-lg text-fg-muted hover:bg-sand hover:text-fg transition-colors duration-200"
         >
           {theme === 'light' ? (
-            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="4" />
               <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
             </svg>
           ) : (
-            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
             </svg>
           )}
